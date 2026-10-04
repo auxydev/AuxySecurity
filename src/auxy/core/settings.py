@@ -32,6 +32,10 @@ class Setting:
         raise ValueError(f"Gecersiz ham deger: {raw!r}")
 
 
+# Yazilabilen ve Windows'un dis yazmaya izin vermedigi (M1 bulgusu) ayarlar
+TOGGLE_KEYS = ("pua", "cfa", "netprot")
+READONLY_KEYS = ("realtime", "maps")
+
 SETTINGS: dict[str, Setting] = {
     s.key: s
     for s in (

@@ -6,7 +6,7 @@ import argparse
 import sys
 
 from auxy import __version__
-from auxy.core import backup, defender, system
+from auxy.core import actions, backup, defender, system
 from auxy.core.service import AuxyError, DefenderService
 from auxy.core.settings import SETTINGS
 
@@ -71,7 +71,7 @@ def _elevate_or_fail(args, argv_tail: list[str]) -> int | None:
     if system.is_admin():
         return None
     if getattr(args, "elevate", False):
-        ok = system.relaunch_as_admin([*argv_tail, "--pause"])
+        ok = system.relaunch_as_admin([*argv_tail, "--pause"])  # gorunur konsol: sonucu goster
         print("Yonetici penceresi acildi." if ok else "UAC reddedildi veya acilamadi.")
         return 0 if ok else 1
     print("HATA: Yonetici yetkisi gerekli. Yonetici terminalinden calistir "
@@ -82,6 +82,45 @@ def _elevate_or_fail(args, argv_tail: list[str]) -> int | None:
 def _pause_if_requested(args) -> None:
     if getattr(args, "pause", False):
         input("\nKapatmak icin Enter'a bas...")
+
+
+def _report(args, ok: bool, message: str, changed: bool = False) -> None:
+    """GUI/tray'in yukseltilmis sureci icin sonucu dosyaya yazar (yalnizca izinli yol)."""
+    if getattr(args, "result", None):
+        try:
+            actions.write_result(args.result, ok, message, changed)
+        except (OSError, ValueError):
+            pass
+
+
+def cmd_agent(_args) -> int:
+    from auxy.agent.tray import run
+
+    return run()
+
+
+def cmd_autostart(args) -> int:
+    from auxy.core import autostart
+
+    if args.action == "status":
+        st = autostart.status()
+        print("Kurulu: " + ("evet" if st.installed else "hayir"))
+        if st.installed:
+            print(f"Son calisma sonucu: {st.last_result}")
+        return 0
+    tail = ["autostart", args.action]
+    early = _elevate_or_fail(args, tail)
+    if early is not None:
+        return early
+    try:
+        autostart.install() if args.action == "install" else autostart.remove()
+    except AuxyError as exc:
+        print(f"HATA: {exc}", file=sys.stderr)
+        _pause_if_requested(args)
+        return 1
+    print("Baslangic gorevi " + ("kuruldu." if args.action == "install" else "kaldirildi."))
+    _pause_if_requested(args)
+    return 0
 
 
 def cmd_set(args) -> int:
@@ -97,8 +136,11 @@ def cmd_set(args) -> int:
         res = DefenderService().set(args.key, args.value)
     except AuxyError as exc:
         print(f"HATA: {exc}", file=sys.stderr)
+        _report(args, False, str(exc))
         _pause_if_requested(args)
         return 1
+    _report(args, True, f"{res.old} → {res.new}" if res.changed else f"zaten {res.new}",
+            res.changed)
     if res.changed:
         print(f"{res.key}: {res.old} -> {res.new}   (geri almak icin: auxy revert {res.key})")
     else:
@@ -144,7 +186,16 @@ def main(argv: list[str] | None = None) -> int:
     p_set.add_argument("value", help="on/off, maps icin off/basic/advanced, digerleri on/off/audit")
     p_set.add_argument("--elevate", action="store_true", help="UAC ile yonetici olarak calistir")
     p_set.add_argument("--pause", action="store_true", help=argparse.SUPPRESS)
+    p_set.add_argument("--result", help=argparse.SUPPRESS)
     p_set.set_defaults(func=cmd_set)
+
+    sub.add_parser("agent", help="Tray ajanini baslat").set_defaults(func=cmd_agent)
+
+    p_auto = sub.add_parser("autostart", help="Oturum acilisinda baslatma gorevi")
+    p_auto.add_argument("action", choices=["install", "remove", "status"])
+    p_auto.add_argument("--elevate", action="store_true")
+    p_auto.add_argument("--pause", action="store_true", help=argparse.SUPPRESS)
+    p_auto.set_defaults(func=cmd_autostart)
 
     p_rev = sub.add_parser("revert", help="Ayari orijinal degerine dondur (yonetici)")
     p_rev.add_argument("key", nargs="?", choices=list(SETTINGS))

@@ -1,4 +1,4 @@
-"""AuxySecurity ana penceresi (customtkinter). Mantik core/ ve viewmodel.py'dedir."""
+﻿"""AuxySecurity ana penceresi (customtkinter). Mantik core/ ve viewmodel.py'dedir."""
 
 from __future__ import annotations
 
@@ -7,9 +7,10 @@ import os
 import customtkinter as ctk
 
 from auxy import __version__
-from auxy.core import defender, paths, system
-from auxy.core.service import DefenderService
+from auxy.core import actions, defender, paths, system
+from auxy.core.settings import READONLY_KEYS as READONLY
 from auxy.core.settings import SETTINGS
+from auxy.core.settings import TOGGLE_KEYS as TOGGLES
 from auxy.gui import viewmodel as vm
 from auxy.gui.worker import Worker
 
@@ -19,10 +20,6 @@ WINSEC_URI = "windowsdefender://threatsettings"
 
 VALUE_TR = {"on": "Açık", "off": "Kapalı", "audit": "Denetim", "basic": "Temel",
             "advanced": "Gelişmiş"}
-
-# Yazilabilen ayarlar (anahtar) ve Windows'un disaridan degistirmeye izin vermedikleri
-TOGGLES = ("pua", "cfa", "netprot")
-READONLY = ("realtime", "maps")
 
 NAV = (
     ("dashboard", "Pano"),
@@ -61,12 +58,12 @@ class DashboardPage(ctk.CTkFrame):
         self.admin_row = ctk.CTkFrame(self, fg_color="transparent")
         self.admin_row.grid(row=1, column=0, sticky="ew", pady=(0, 8))
         self.admin_label = ctk.CTkLabel(
-            self.admin_row, text="Ayarları değiştirmek için yönetici yetkisi gerekir.",
+            self.admin_row, text="Ayar değiştirirken yönetici izni (UAC) istenecek.",
             text_color=("gray30", "gray70"),
         )
         self.admin_label.pack(side="left")
         self.admin_btn = ctk.CTkButton(
-            self.admin_row, text="Yönetici olarak yeniden başlat", width=210,
+            self.admin_row, text="Yönetici olarak yeniden aç", width=190,
             command=app.restart_as_admin,
         )
         self.admin_btn.pack(side="right")
@@ -138,7 +135,7 @@ class DashboardPage(ctk.CTkFrame):
         for key, switch in self.switches.items():
             name = SETTINGS[key].name_of(st.prefs[SETTINGS[key].pref_field])
             (switch.select if name == "on" else switch.deselect)()
-            switch.configure(state="normal" if admin else "disabled")
+            switch.configure(state="normal")
             self.switch_notes[key].configure(text="denetim modu" if name == "audit" else "")
 
         if admin:
@@ -277,16 +274,16 @@ class App(ctk.CTk):
         label = SETTINGS[key].label
         self.dashboard.show_message(f"{label}: {value} uygulanıyor…")
         switch.configure(state="disabled")
-        self.worker.submit(lambda: DefenderService().set(key, value),
+        self.worker.submit(lambda: actions.apply_setting(key, value),
                            lambda res, exc: self._on_set(label, res, exc))
 
     def _on_set(self, label: str, res, exc) -> None:
         if exc is not None:
             self.dashboard.show_message(str(exc), error=True)
-        elif res.changed:
-            self.dashboard.show_message(f"{label}: {res.old} → {res.new}")
+        elif res.ok:
+            self.dashboard.show_message(f"{label}: {res.message}")
         else:
-            self.dashboard.show_message(f"{label}: zaten {res.new}.")
+            self.dashboard.show_message(res.message, error=True)
         self.refresh()  # gercek durumu geri oku (anahtarlari da dogrular)
 
     def restart_as_admin(self) -> None:
@@ -297,6 +294,10 @@ class App(ctk.CTk):
 
 
 def run() -> None:
+    if not system.acquire_single_instance("AuxySecurityGui"):
+        system.focus_window("AuxySecurity")  # zaten acik: One getir
+        return
     ctk.set_appearance_mode("system")
     ctk.set_default_color_theme("blue")
     App().mainloop()
+
