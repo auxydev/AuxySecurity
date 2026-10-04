@@ -41,6 +41,32 @@ def _describe(res) -> ActionResult:
     return ActionResult(True, f"zaten {res.new}", False)
 
 
+def cancel_scan() -> ActionResult:
+    """Calisan taramayi iptal eder (yonetici gerekir; degilsek UAC ister)."""
+    from auxy.core import scan
+
+    if system.is_admin():
+        code, out = scan.cancel_scan_command()
+        ok = code == 0
+        return ActionResult(ok, "Tarama iptal edildi." if ok else f"İptal edilemedi: {out.strip()[-200:]}")
+    fd, tmp = tempfile.mkstemp(prefix=RESULT_PREFIX, suffix=".json")
+    os.close(fd)
+    try:
+        code = system.run_elevated_and_wait(["scan-cancel", "--result", tmp])
+        if code is None:
+            return ActionResult(False, "Yönetici izni verilmedi; tarama iptal edilemedi.")
+        try:
+            data = json.loads(Path(tmp).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return ActionResult(False, f"İşlem sonucu okunamadı (çıkış kodu {code}).")
+        return ActionResult(bool(data["ok"]), str(data["message"]))
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
 def apply_setting(key: str, value: str) -> ActionResult:
     """Ayari uygular. Yonetici degilsek UAC penceresi acar (gizli yardimci surec)."""
     if system.is_admin():

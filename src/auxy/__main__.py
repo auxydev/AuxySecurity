@@ -93,6 +93,60 @@ def _report(args, ok: bool, message: str, changed: bool = False) -> None:
             pass
 
 
+def cmd_scan(args) -> int:
+    from auxy.core import scan
+
+    kinds = {"quick": scan.QUICK, "full": scan.FULL, "custom": scan.CUSTOM}
+    if args.kind == "custom" and not args.path:
+        print("HATA: özel tarama için yol ver: auxy scan custom <yol>", file=sys.stderr)
+        return 2
+    print(f"{scan.TYPE_NAMES[kinds[args.kind]]} başlıyor… (bitene kadar bekler)")
+    try:
+        res = scan.ScanManager().run(kinds[args.kind], args.path)
+    except AuxyError as exc:
+        print(f"HATA: {exc}", file=sys.stderr)
+        return 1
+    print(f"{res.summary()}  ({scan.format_duration(res.seconds)})")
+    return 0 if res.status == scan.COMPLETED else 1
+
+
+def cmd_scan_cancel(args) -> int:
+    from auxy.core import scan
+
+    res = actions.cancel_scan() if system.is_admin() else None
+    if res is None:
+        print("HATA: yönetici yetkisi gerekli.", file=sys.stderr)
+        return 3
+    _report(args, res.ok, res.message)
+    print(res.message)
+    return 0 if res.ok else 1
+
+
+def cmd_threats(_args) -> int:
+    from auxy.core import threats
+
+    items = threats.read_detections()
+    if not items:
+        print("Kayıtlı tehdit tespiti yok.")
+        return 0
+    for d in items:
+        when = d.time.strftime("%Y-%m-%d %H:%M") if d.time else "?"
+        state = "işlem uygulandı" if d.handled else "beklemede"
+        print(f"{when}  {d.severity:<11} {d.name}  [{state}]")
+        for p in d.paths:
+            print(f"    {p}")
+    return 0
+
+
+def cmd_update_signatures(_args) -> int:
+    from auxy.core import scan
+
+    print("İmzalar güncelleniyor… (~20 sn)")
+    ok, msg = scan.update_signatures()
+    print(msg)
+    return 0 if ok else 1
+
+
 def cmd_agent(_args) -> int:
     from auxy.agent.tray import run
 
@@ -188,6 +242,19 @@ def main(argv: list[str] | None = None) -> int:
     p_set.add_argument("--pause", action="store_true", help=argparse.SUPPRESS)
     p_set.add_argument("--result", help=argparse.SUPPRESS)
     p_set.set_defaults(func=cmd_set)
+
+    p_scan = sub.add_parser("scan", help="Tarama başlat (bitene kadar bekler)")
+    p_scan.add_argument("kind", choices=["quick", "full", "custom"])
+    p_scan.add_argument("path", nargs="?", help="özel tarama için dosya/klasör")
+    p_scan.set_defaults(func=cmd_scan)
+
+    p_sc = sub.add_parser("scan-cancel", help=argparse.SUPPRESS)
+    p_sc.add_argument("--result", help=argparse.SUPPRESS)
+    p_sc.set_defaults(func=cmd_scan_cancel)
+
+    sub.add_parser("threats", help="Tehdit tespitlerini listele").set_defaults(func=cmd_threats)
+    sub.add_parser("update-signatures", help="Virüs imzalarını güncelle").set_defaults(
+        func=cmd_update_signatures)
 
     sub.add_parser("agent", help="Tray ajanini baslat").set_defaults(func=cmd_agent)
 

@@ -135,6 +135,7 @@ def test_menu_builds_with_and_without_status():
                  EnableControlledFolderAccess=0, EnableNetworkProtection=2)
     agent.status = defender.DefenderStatus(status=status, prefs=prefs)
     items = {i.text: i for i in agent.icon.menu.items if i.text}
+    assert items["Hızlı tara"].enabled is True
     assert items["İstenmeyen uygulama koruması"].checked is True
     assert items["Denetimli klasör erişimi"].checked is False
     assert items["Ağ koruması"].checked is True  # denetim modu = acik sayilir

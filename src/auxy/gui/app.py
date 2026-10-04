@@ -9,6 +9,7 @@ from auxy.core import actions, defender, paths, system
 from auxy.core.settings import SETTINGS
 from auxy.core.settings import TOGGLE_KEYS as TOGGLES
 from auxy.gui import viewmodel as vm
+from auxy.gui.scan_page import ScanPage
 from auxy.gui.worker import Worker
 
 COLORS = {vm.OK: "#2e9e5b", vm.WARN: "#d9932b", vm.CRIT: "#d64545"}
@@ -222,7 +223,7 @@ class App(ctk.CTk):
         self.log_page = LogPage(content)
         self.pages: dict[str, ctk.CTkFrame] = {
             "dashboard": self.dashboard,
-            "scan": PlaceholderPage(content, "Tarama", "Hızlı / tam / özel tarama: M4'te eklenecek."),
+            "scan": ScanPage(content, self),
             "quarantine": PlaceholderPage(content, "Karantina", "Karantina kasası: M5'te eklenecek."),
             "settings": SettingsPage(content, self),
             "log": self.log_page,
@@ -241,6 +242,8 @@ class App(ctk.CTk):
             b.configure(fg_color=("gray78", "gray28") if k == key else "transparent")
         if key == "log":
             self.log_page.reload()
+        elif key == "scan":
+            self.pages["scan"].refresh_lists()
 
     # ---- veri ----
     def refresh(self) -> None:

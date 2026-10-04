@@ -26,6 +26,9 @@ class Agent:
 
         self._pystray = pystray
         self._log = get_logger()
+        from auxy.core.scan import ScanManager
+
+        self._scans = ScanManager()
         self._stop = threading.Event()
         self._wake = threading.Event()
         self.status: defender.DefenderStatus | None = None
@@ -70,6 +73,7 @@ class Agent:
         yield item(self.health.title if self.health else "Durum okunamadı", None, enabled=False)
         yield sep
         yield item("Paneli aç", self.open_gui, default=True)
+        yield item("Hızlı tara", self._quick_scan_action, enabled=self._scan_enabled)
         yield sep
         for key in TOGGLE_KEYS:
             yield item(
@@ -116,7 +120,24 @@ class Agent:
 
         return checked
 
+    def _quick_scan_action(self, icon, item):
+        self._start(self._quick_scan)
+
+    def _scan_enabled(self, item) -> bool:
+        return not self._scans.running
+
     # ---- eylemler ----
+    def _quick_scan(self) -> None:
+        from auxy.core import scan
+
+        self.icon.notify("Hızlı tarama başladı.", "AuxySecurity")
+        try:
+            res = self._scans.run(scan.QUICK)
+            self.icon.notify(res.summary(), "AuxySecurity")
+        except Exception as exc:  # ScanBusyError dahil
+            self.icon.notify(str(exc), "AuxySecurity")
+        self.refresh()
+
     @staticmethod
     def _start(fn, *args) -> None:
         threading.Thread(target=fn, args=args, daemon=True).start()

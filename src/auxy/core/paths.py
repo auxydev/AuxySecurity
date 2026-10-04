@@ -17,6 +17,10 @@ def backup_file() -> Path:
     return home() / "backup.json"
 
 
+def scan_history_file() -> Path:
+    return home() / "scan_history.json"
+
+
 def log_dir() -> Path:
     d = home() / "logs"
     d.mkdir(parents=True, exist_ok=True)
