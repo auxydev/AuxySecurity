@@ -138,6 +138,15 @@ def test_original_not_overwritten_by_second_change():
     assert backup.load() == {"maps": 1}  # ilk orijinal (basic) korunur
 
 
+def test_manual_return_to_original_clears_stale_backup():
+    f = FakeDefender()
+    s = svc(f)
+    s.set("pua", "off")
+    assert backup.load() == {"pua": 1}
+    s.set("pua", "on")  # kullanici elle orijinale dondu
+    assert backup.load() == {}
+
+
 def test_revert_restores_original_and_clears_backup():
     f = FakeDefender()
     s = svc(f)

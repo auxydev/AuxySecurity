@@ -49,6 +49,11 @@ def run_powershell(command: str) -> tuple[int, str, str]:
     )
 
 
+def key_saved_equals(key: str, raw) -> bool:
+    saved = backup.load()
+    return key in saved and saved[key] == raw and type(saved[key]) is type(raw)
+
+
 def _lookup(key: str) -> Setting:
     try:
         return SETTINGS[key]
@@ -137,5 +142,7 @@ class DefenderService:
                 f"'{setting.key}' degisikligi uygulanmadi (deger hala {setting.name_of(after)}). "
                 + hint
             )
+        if track_backup and key_saved_equals(setting.key, target):
+            backup.forget(setting.key)  # kullanici orijinale elle dondu; bayat kayit kalmasin
         self._log.info("AYAR %s: %s -> %s", setting.key, old_name, new_name)
         return SetResult(setting.key, old_name, new_name, changed=True)

@@ -44,6 +44,13 @@ def cmd_status(_args) -> int:
     return 0
 
 
+def cmd_gui(_args) -> int:
+    from auxy.gui.app import run  # gec import: CLI komutlari GUI kutuphanesini yuklemesin
+
+    run()
+    return 0
+
+
 def cmd_get(args) -> int:
     values = DefenderService().get_all()
     saved = backup.load()
@@ -125,6 +132,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("status", help="Defender durumunu goster").set_defaults(func=cmd_status)
+
+    sub.add_parser("gui", help="Pencereyi ac").set_defaults(func=cmd_gui)
 
     p_get = sub.add_parser("get", help="Yonetilen ayarlari goster")
     p_get.add_argument("key", nargs="?", help=f"({', '.join(SETTINGS)})")

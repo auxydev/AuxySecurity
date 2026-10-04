@@ -1,4 +1,4 @@
-"""Yonetilebilen Defender ayarlari ve izinli deger listesi.
+﻿"""Yonetilebilen Defender ayarlari ve izinli deger listesi.
 
 PowerShell komutuna yalnizca bu tablodaki sabit parametre adlari ve dogrulanmis
 bool/int degerleri girer; kullanici girdisi komuta gomulmez.
@@ -36,7 +36,7 @@ SETTINGS: dict[str, Setting] = {
     s.key: s
     for s in (
         Setting(
-            "realtime", "Gercek zamanli koruma", "DisableRealtimeMonitoring",
+            "realtime", "Gerçek zamanlı koruma", "DisableRealtimeMonitoring",
             "DisableRealtimeMonitoring", {"on": False, "off": True}, tamper_guarded=True,
         ),
         Setting(
@@ -44,16 +44,17 @@ SETTINGS: dict[str, Setting] = {
             {"off": 0, "basic": 1, "advanced": 2}, tamper_guarded=True,
         ),
         Setting(
-            "pua", "Istenmeyen uygulama korumasi", "PUAProtection", "PUAProtection",
+            "pua", "İstenmeyen uygulama koruması", "PUAProtection", "PUAProtection",
             {"off": 0, "on": 1, "audit": 2},
         ),
         Setting(
-            "cfa", "Denetimli klasor erisimi", "EnableControlledFolderAccess",
+            "cfa", "Denetimli klasör erişimi", "EnableControlledFolderAccess",
             "EnableControlledFolderAccess", {"off": 0, "on": 1, "audit": 2},
         ),
         Setting(
-            "netprot", "Ag korumasi", "EnableNetworkProtection",
+            "netprot", "Ağ koruması", "EnableNetworkProtection",
             "EnableNetworkProtection", {"off": 0, "on": 1, "audit": 2},
         ),
     )
 }
+
