@@ -55,12 +55,13 @@ class SettingsPage(ctk.CTkFrame):
         ctk.CTkButton(fb, text="Sıfırla", width=60, height=24, fg_color="transparent", border_width=1,
                       text_color=("gray20", "gray85"), command=self.reset_folders).pack(side="left", padx=(6, 0))
 
-        self.events_sw = self._switch(card, 4, "Tehdit bulununca bildirim göster", self._save)
-        self.usb_sw = self._switch(card, 5, "Takılan USB sürücüyü tara", self._save)
+        self.recursive_sw = self._switch(card, 4, "İzlenen klasörlerin alt klasörlerini de izle", self._save)
+        self.events_sw = self._switch(card, 5, "Tehdit bulununca bildirim göster", self._save)
+        self.usb_sw = self._switch(card, 6, "Takılan USB sürücüyü tara", self._save)
 
-        self.sched_sw = self._switch(card, 6, "Haftalık zamanlanmış tarama (bilgisayar boştayken)", self._save)
+        self.sched_sw = self._switch(card, 7, "Haftalık zamanlanmış tarama (bilgisayar boştayken)", self._save)
         row = ctk.CTkFrame(card, fg_color="transparent")
-        row.grid(row=7, column=0, columnspan=3, sticky="w", padx=32, pady=(0, 8))
+        row.grid(row=8, column=0, columnspan=3, sticky="w", padx=32, pady=(0, 8))
         self.day_menu = ctk.CTkOptionMenu(row, values=cfgmod.WEEKDAYS, width=120, command=lambda _v: self._save())
         self.day_menu.pack(side="left")
         self.hour_menu = ctk.CTkOptionMenu(row, values=HOURS, width=90, command=lambda _v: self._save())
@@ -69,7 +70,7 @@ class SettingsPage(ctk.CTkFrame):
         self.kind_menu.pack(side="left")
         ctk.CTkLabel(card, text="Bilgisayar 5 dk boştaysa ve prizdeyse çalışır; uygun an yoksa 6 saat sonra vazgeçer.",
                      anchor="w", text_color=MUTED, wraplength=520, justify="left").grid(
-            row=8, column=0, columnspan=3, sticky="w", padx=32, pady=(0, 10))
+            row=9, column=0, columnspan=3, sticky="w", padx=32, pady=(0, 10))
 
         # ---- sag tik ----
         card = self._card(body, "Explorer", 2)
@@ -103,7 +104,8 @@ class SettingsPage(ctk.CTkFrame):
     # ---- yukle / kaydet ----
     def load_into_widgets(self) -> None:
         c = self.cfg = cfgmod.load()
-        for sw, val in ((self.watch_sw, c.watch_enabled), (self.events_sw, c.event_notifications),
+        for sw, val in ((self.watch_sw, c.watch_enabled), (self.recursive_sw, c.watch_recursive),
+                        (self.events_sw, c.event_notifications),
                         (self.usb_sw, c.usb_scan), (self.sched_sw, c.scheduled.enabled),
                         (self.ctx_sw, contextmenu.is_installed())):
             (sw.select if val else sw.deselect)()
@@ -122,6 +124,7 @@ class SettingsPage(ctk.CTkFrame):
         return cfgmod.Config(
             watch_enabled=bool(self.watch_sw.get()),
             watch_folders=list(self.cfg.watch_folders),
+            watch_recursive=bool(self.recursive_sw.get()),
             event_notifications=bool(self.events_sw.get()),
             usb_scan=bool(self.usb_sw.get()),
             scheduled=cfgmod.ScheduledScan(

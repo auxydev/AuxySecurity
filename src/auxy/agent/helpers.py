@@ -38,7 +38,8 @@ class HelperManager:
         # testlerde degistirilebilir
         self._factories = factories or {
             "watch": lambda c: watchers.FolderWatcher(c.effective_watch_folders(), self._manager,
-                                                      self._notify, self._remember_threat_from_scan),
+                                                      self._notify, self._remember_threat_from_scan,
+                                                      c.watch_recursive),
             "events": lambda c: watchers.DefenderEventListener(self._on_event),
             "usb": lambda c: watchers.UsbWatcher(self._manager, self._notify),
             "schedule": lambda c: watchers.ScheduledScanner(c.scheduled, self._manager, self._notify),
@@ -49,7 +50,7 @@ class HelperManager:
         """Bilesen -> imza (None: kapali). Imza degisince bilesen yeniden baslatilir."""
         s = cfg.scheduled
         return {
-            "watch": tuple(cfg.effective_watch_folders()) if cfg.watch_enabled else None,
+            "watch": (tuple(cfg.effective_watch_folders()), cfg.watch_recursive) if cfg.watch_enabled else None,
             "events": () if cfg.event_notifications else None,
             "usb": () if cfg.usb_scan else None,
             "schedule": (s.weekday, s.hour, s.kind) if s.enabled else None,

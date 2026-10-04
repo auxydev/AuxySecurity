@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import customtkinter as ctk
 
 from auxy import __version__
@@ -173,9 +175,18 @@ class LogPage(ctk.CTkFrame):
         self.box.see("end")
 
 
-class App(ctk.CTk):
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD
+
+    _DnD = TkinterDnD.DnDWrapper
+except ImportError:  # sürükle-bırak bağımlılığı yoksa uygulama yine çalışır
+    DND_FILES, TkinterDnD, _DnD = None, None, object
+
+
+class App(ctk.CTk, _DnD):
     def __init__(self):
         super().__init__()
+        self.dnd_ready = self._setup_dnd()
         self.title("AuxySecurity")
         self.geometry("920x620")
         self.minsize(820, 560)
@@ -220,6 +231,25 @@ class App(ctk.CTk):
 
         self.refresh()
         self.after(AUTO_REFRESH_MS, self._auto_refresh)
+
+    # ---- surukle-birak ----
+    def _setup_dnd(self) -> bool:
+        if TkinterDnD is None:
+            return False
+        try:
+            self.TkdndVersion = TkinterDnD._require(self)
+            self.drop_target_register(DND_FILES)
+            self.dnd_bind("<<Drop>>", lambda e: self.on_drop(list(self.tk.splitlist(e.data))))
+            return True
+        except Exception:  # tkdnd yuklenemedi: sessizce kapali kal
+            return False
+
+    def on_drop(self, paths: list[str]) -> None:
+        """Pencereye birakilan dosya/klasorleri tarar (var olmayan yollar atlanir)."""
+        existing = [p for p in paths if os.path.exists(p)]
+        if existing:
+            self.show("scan")
+            self.pages["scan"].scan_paths(existing)
 
     # ---- gezinme ----
     def show(self, key: str) -> None:

@@ -14,7 +14,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
-from auxy.core import paths, threats
+from auxy.core import paths, system, threats
 from auxy.core.defender import DefenderError
 from auxy.core.log import get_logger
 from auxy.core.service import AuxyError
@@ -108,12 +108,19 @@ class ScanManager:
         with self._lock:
             if self._proc is not None:
                 raise ScanBusyError("Zaten bir tarama çalışıyor.")
+            lock = system.ScanLock()
+            if not lock.acquire():
+                raise ScanBusyError("Başka bir AuxySecurity penceresi ya da ajanı şu an tarama yapıyor.")
             self._cancel_requested = False
             started = datetime.now()
-            self._proc = subprocess.Popen(
-                [str(mpcmdrun_path()), *args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                creationflags=_flags(),
-            )
+            try:
+                self._proc = subprocess.Popen(
+                    [str(mpcmdrun_path()), *args], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    creationflags=_flags(),
+                )
+            except BaseException:
+                lock.release()
+                raise
             proc = self._proc
         self._log.info("TARAMA basladi: %s %s", TYPE_NAMES[scan_type], path or "")
         try:
@@ -121,6 +128,7 @@ class ScanManager:
         finally:
             with self._lock:
                 self._proc = None
+            lock.release()
         seconds = (datetime.now() - started).total_seconds()
         if self._cancel_requested:
             status = CANCELLED

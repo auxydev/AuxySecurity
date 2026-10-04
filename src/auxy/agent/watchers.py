@@ -76,8 +76,9 @@ def wait_until_stable(path: str, poll: float = STABLE_POLL_S, timeout: float = S
 # ---------------- klasor izleme ----------------
 class FolderWatcher:
     def __init__(self, folders: list[str], manager: scan.ScanManager, notify: Notify,
-                 on_threat: Callable[[str, list[str]], None] | None = None):
+                 on_threat: Callable[[str, list[str]], None] | None = None, recursive: bool = False):
         self.folders = [f for f in folders if Path(f).is_dir()]
+        self._recursive = recursive
         self._manager = manager
         self._notify = notify
         self._on_threat = on_threat
@@ -104,7 +105,7 @@ class FolderWatcher:
 
         self._observer = Observer()
         for folder in self.folders:
-            self._observer.schedule(Handler(), folder, recursive=False)
+            self._observer.schedule(Handler(), folder, recursive=self._recursive)
         self._observer.start()
         self._thread = threading.Thread(target=self._worker, daemon=True, name="auxy-folder-scan")
         self._thread.start()

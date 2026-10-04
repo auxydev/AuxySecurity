@@ -37,6 +37,7 @@ class ScheduledScan:
 class Config:
     watch_enabled: bool = False
     watch_folders: list[str] = field(default_factory=list)  # bos = Indirilenler
+    watch_recursive: bool = False  # alt klasorleri de izle
     event_notifications: bool = True
     usb_scan: bool = False
     scheduled: ScheduledScan = field(default_factory=ScheduledScan)
@@ -54,8 +55,8 @@ class Config:
             kind=s.kind if s.kind in SCAN_KINDS else "quick",
         )
         folders = [str(f) for f in self.watch_folders if isinstance(f, str) and f][:20]
-        return Config(bool(self.watch_enabled), folders, bool(self.event_notifications),
-                      bool(self.usb_scan), sched)
+        return Config(bool(self.watch_enabled), folders, bool(self.watch_recursive),
+                      bool(self.event_notifications), bool(self.usb_scan), sched)
 
 
 def _from_dict(raw: dict) -> Config:

@@ -34,6 +34,7 @@ class ScanPage(ctk.CTkFrame):
         self.manager = scan.ScanManager()
         self._started_at: float | None = None
         self._scan_title = ""
+        self._cancel_all = False
         self.columnconfigure(0, weight=1)
         self.rowconfigure(5, weight=1)
         self.rowconfigure(7, weight=1)
@@ -63,6 +64,7 @@ class ScanPage(ctk.CTkFrame):
         self.progress = ctk.CTkProgressBar(self, mode="determinate")
         self.progress.grid(row=2, column=0, sticky="ew", pady=(12, 4))
         self.progress.set(0)
+        self.progress.grid_remove()  # bosta gorunmesin (customtkinter sol uc noktasi kozmetigi)
         self.status = ctk.CTkLabel(self, text="Hazır.", anchor="w", justify="left", wraplength=640)
         self.status.grid(row=3, column=0, sticky="w")
 
@@ -141,6 +143,43 @@ class ScanPage(ctk.CTkFrame):
         self._tick()
         self.app.worker.submit(lambda: self.manager.run(scan_type, path), self._on_done, long=True)
 
+    def scan_paths(self, paths: list[str]) -> None:
+        """Birakilan birden fazla yolu sirayla tarar (tek yol: normal ozel tarama)."""
+        if self.manager.running or self._started_at is not None:
+            self.status.configure(text="Zaten bir tarama sürüyor.", text_color="#d64545")
+            return
+        if len(paths) == 1:
+            self.start(scan.CUSTOM, paths[0])
+            return
+        self._scan_title = f"{len(paths)} öğe taranıyor"
+        self._cancel_all = False
+        self._set_busy(True)
+        self._started_at = time.monotonic()
+        self._tick()
+
+        def job():
+            results = []
+            for p in paths:
+                if self._cancel_all:
+                    break
+                results.append(self.manager.run(scan.CUSTOM, p))
+            return results
+
+        self.app.worker.submit(job, self._on_done_many, long=True)
+
+    def _on_done_many(self, results, exc) -> None:
+        self._started_at = None
+        self._set_busy(False)
+        if exc is not None:
+            self.status.configure(text=str(exc), text_color="#d64545")
+        else:
+            found = sorted({t for r in results for t in r.threats})
+            text = f"{len(results)} öğe tarandı: " + (f"{len(found)} tehdit bulundu ({', '.join(found)})."
+                                                      if found else "tehdit bulunamadı.")
+            self.status.configure(text=text, text_color="#d64545" if found else "#2e9e5b")
+        self.refresh_lists()
+        self.app.refresh()
+
     def _tick(self) -> None:
         if self._started_at is None:
             return
@@ -164,6 +203,7 @@ class ScanPage(ctk.CTkFrame):
 
     def cancel(self) -> None:
         self.cancel_btn.configure(state="disabled")
+        self._cancel_all = True  # coklu taramada siradaki yollar atlanir
         self.manager.mark_cancel_requested()
         self.status.configure(text="İptal ediliyor… (yönetici izni gerekebilir)")
         self.app.worker.submit(actions.cancel_scan, self._on_cancel)
@@ -196,10 +236,12 @@ class ScanPage(ctk.CTkFrame):
             b.configure(state="disabled" if busy else "normal")
         self.cancel_btn.configure(state="normal" if busy else "disabled")
         if busy:
+            self.progress.grid()
             self.progress.configure(mode="indeterminate")
             self.progress.start()
         else:
             self.progress.stop()
             self.progress.configure(mode="determinate")
             self.progress.set(0)
+            self.progress.grid_remove()
 

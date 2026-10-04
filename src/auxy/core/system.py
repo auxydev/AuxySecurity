@@ -170,6 +170,46 @@ def is_agent_running() -> bool:
     return False
 
 
+class ScanLock:
+    """Surecler arasi (GUI / tray / ajan) tek tarama kilidi: adli mutex.
+
+    Mutex sahipligi is parcacigina baglidir; acquire() ve release() AYNI is parcaciginda cagrilmalidir
+    (ScanManager.run bunu zaten tek is parcaciginda yapar). Sahibi olen surecin mutex'i "terk edilmis"
+    sayilir ve devralinir; boylece cokmus bir surec kalici kilit birakmaz.
+    """
+
+    NAME = "Local\\AuxyScanLock"
+
+    def __init__(self):
+        self._h = None
+
+    def acquire(self) -> bool:
+        k = ctypes.windll.kernel32
+        k.CreateMutexW.restype = wintypes.HANDLE
+        k.CreateMutexW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+        k.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        k.WaitForSingleObject.restype = wintypes.DWORD
+        h = k.CreateMutexW(None, False, self.NAME + instance_suffix())
+        if not h:
+            return True  # kilit olusturulamadi: engelleme
+        rc = k.WaitForSingleObject(h, 0)
+        if rc in (0, 0x80):  # WAIT_OBJECT_0, WAIT_ABANDONED
+            self._h = h
+            return True
+        k.CloseHandle.argtypes = [wintypes.HANDLE]
+        k.CloseHandle(h)
+        return False
+
+    def release(self) -> None:
+        if self._h:
+            k = ctypes.windll.kernel32
+            k.ReleaseMutex.argtypes = [wintypes.HANDLE]
+            k.CloseHandle.argtypes = [wintypes.HANDLE]
+            k.ReleaseMutex(self._h)
+            k.CloseHandle(self._h)
+            self._h = None
+
+
 def focus_window(title: str) -> bool:
     user32 = ctypes.windll.user32
     hwnd = user32.FindWindowW(None, title)
