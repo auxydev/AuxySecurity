@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
 from auxy import __version__
@@ -84,11 +85,11 @@ def _pause_if_requested(args) -> None:
         input("\nKapatmak icin Enter'a bas...")
 
 
-def _report(args, ok: bool, message: str, changed: bool = False) -> None:
+def _report(args, ok: bool, message: str, changed: bool = False, data=None) -> None:
     """GUI/tray'in yukseltilmis sureci icin sonucu dosyaya yazar (yalnizca izinli yol)."""
     if getattr(args, "result", None):
         try:
-            actions.write_result(args.result, ok, message, changed)
+            actions.write_result(args.result, ok, message, changed, data)
         except (OSError, ValueError):
             pass
 
@@ -189,6 +190,106 @@ def _find_vault_item(vault, prefix: str):
     if len(matches) != 1:
         raise AuxyError(f"'{prefix}' ile eşleşen {len(matches)} kayıt var; tam id'yi (en az 8 karakter) ver.")
     return matches[0]
+
+
+def _helper_guard(args, needs_admin: bool = True) -> bool:
+    """Yukseltilmis yardimci modunda (--result) hala yonetici degilsek, sonsuz UAC dongusunu engelle."""
+    if getattr(args, "result", None) and needs_admin and not system.is_admin():
+        _report(args, False, "Yönetici yetkisi alınamadı.")
+        return False
+    return True
+
+
+def cmd_winsec_get(_args) -> int:
+    from auxy.core import winsec
+
+    svc = winsec.WinSecService()
+    values = svc.get_all()
+    saved = backup.load()
+    for key, s in winsec.WINSEC_SETTINGS.items():
+        mark = "  (değiştirildi, 'auxy winsec-revert' ile geri alınır)" if winsec.BACKUP_PREFIX + key in saved else ""
+        reboot = "  [yeniden başlatma gerekir]" if s.reboot else ""
+        print(f"  {key:<17} {s.label:<46}: {values[key]}{reboot}{mark}")
+    dev = winsec.read_device_security()
+    yn = lambda v: "bilinmiyor" if v is None else ("evet" if v else "hayır")  # noqa: E731
+    print(f"  Secure Boot: {yn(dev.secure_boot)} | Sanallaştırma tabanlı güvenlik: {yn(dev.vbs_running)} | "
+          f"Bellek bütünlüğü çalışıyor: {yn(dev.hvci_running)}")
+    for p in winsec.read_security_center():
+        print(f"  {p.category}: {p.name}  (etkin: {yn(p.enabled)}, güncel: {yn(p.up_to_date)})")
+    try:
+        for name, state in winsec.read_exploit_protection().items():
+            print(f"  Exploit protection {name}: {winsec.EXPLOIT_STATES.get(state, state)}")
+    except AuxyError as exc:
+        print(f"  Exploit protection okunamadı: {exc}")
+    return 0
+
+
+def cmd_winsec_set(args) -> int:
+    from auxy.core import winsec
+
+    s = winsec.WINSEC_SETTINGS.get(args.key)
+    if s is None or args.value not in s.choices:
+        print(f"HATA: geçersiz ayar/değer. Ayarlar: {', '.join(winsec.WINSEC_SETTINGS)}", file=sys.stderr)
+        return 2
+    if not _helper_guard(args, s.needs_admin):
+        return 3
+    res = actions.apply_winsec(args.key, args.value)
+    _report(args, res.ok, res.message, res.changed)
+    print(("" if res.ok else "HATA: ") + f"{args.key}: {res.message}", file=None if res.ok else sys.stderr)
+    return 0 if res.ok else 1
+
+
+def cmd_winsec_revert(args) -> int:
+    from auxy.core import winsec
+
+    if not system.is_admin():
+        early = _elevate_or_fail(args, ["winsec-revert", *([args.key] if args.key else [])])
+        if early is not None:
+            return early
+    try:
+        results = winsec.WinSecService().revert(args.key)
+    except AuxyError as exc:
+        print(f"HATA: {exc}", file=sys.stderr)
+        _pause_if_requested(args)
+        return 1
+    for r in results or []:
+        print(f"{r.key}: {r.old} -> {r.new}  (orijinale dönüldü)")
+    if not results:
+        print("Geri alınacak değişiklik yok.")
+    _pause_if_requested(args)
+    return 0
+
+
+def cmd_exclusion(args) -> int:
+    if not _helper_guard(args):
+        return 3
+    try:
+        res = actions.exclusion_op(args.op, args.kind, args.value or "")
+    except AuxyError as exc:
+        _report(args, False, str(exc))
+        print(f"HATA: {exc}", file=sys.stderr)
+        return 1
+    _report(args, res.ok, res.message, res.changed, res.data)
+    if not res.ok:
+        print(f"HATA: {res.message}", file=sys.stderr)
+        return 1
+    if args.op == "list":
+        for kind, items in (res.data or {}).items():
+            for it in items:
+                print(f"  [{kind}] {it}")
+        print(res.message)
+    else:
+        print(res.message)
+    return 0
+
+
+def cmd_tpm_info(args) -> int:
+    if not _helper_guard(args):
+        return 3
+    res = actions.read_tpm()
+    _report(args, res.ok, res.message, False, res.data)
+    print(json.dumps(res.data, ensure_ascii=False) if res.ok else f"HATA: {res.message}")
+    return 0 if res.ok else 1
 
 
 def cmd_agent(_args) -> int:
@@ -308,6 +409,28 @@ def main(argv: list[str] | None = None) -> int:
     p_vault.add_argument("--overwrite", action="store_true")
     p_vault.add_argument("--yes", action="store_true", help="delete: onay")
     p_vault.set_defaults(func=cmd_vault)
+
+    sub.add_parser("winsec-get", help="Güvenlik duvarı, SmartScreen, cihaz güvenliği durumu").set_defaults(
+        func=cmd_winsec_get)
+    p_ws = sub.add_parser("winsec-set", help="Windows güvenlik ayarını değiştir (gerekirse UAC)")
+    p_ws.add_argument("key")
+    p_ws.add_argument("value")
+    p_ws.add_argument("--result", help=argparse.SUPPRESS)
+    p_ws.set_defaults(func=cmd_winsec_set)
+    p_wr = sub.add_parser("winsec-revert", help="Windows güvenlik ayarını orijinaline döndür")
+    p_wr.add_argument("key", nargs="?")
+    p_wr.add_argument("--elevate", action="store_true")
+    p_wr.add_argument("--pause", action="store_true", help=argparse.SUPPRESS)
+    p_wr.set_defaults(func=cmd_winsec_revert)
+    p_ex = sub.add_parser("exclusion", help="Defender dışlamaları (UAC ister)")
+    p_ex.add_argument("op", choices=["list", "add", "remove"])
+    p_ex.add_argument("kind", choices=["path", "extension", "process"])
+    p_ex.add_argument("value", nargs="?")
+    p_ex.add_argument("--result", help=argparse.SUPPRESS)
+    p_ex.set_defaults(func=cmd_exclusion)
+    p_tp = sub.add_parser("tpm-info", help="TPM durumu (UAC ister)")
+    p_tp.add_argument("--result", help=argparse.SUPPRESS)
+    p_tp.set_defaults(func=cmd_tpm_info)
 
     sub.add_parser("agent", help="Tray ajanini baslat").set_defaults(func=cmd_agent)
 

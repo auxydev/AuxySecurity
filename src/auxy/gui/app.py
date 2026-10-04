@@ -10,6 +10,7 @@ from auxy.core.settings import SETTINGS
 from auxy.core.settings import TOGGLE_KEYS as TOGGLES
 from auxy.gui import viewmodel as vm
 from auxy.gui.scan_page import ScanPage
+from auxy.gui.security_page import SecurityPage
 from auxy.gui.vault_page import VaultPage
 from auxy.gui.worker import Worker
 
@@ -23,6 +24,7 @@ MAPS_TR = {"Kapalı": "off", "Temel": "basic", "Gelişmiş": "advanced"}
 
 NAV = (
     ("dashboard", "Pano"),
+    ("security", "Güvenlik"),
     ("scan", "Tarama"),
     ("quarantine", "Karantina"),
     ("settings", "Ayarlar"),
@@ -224,6 +226,7 @@ class App(ctk.CTk):
         self.log_page = LogPage(content)
         self.pages: dict[str, ctk.CTkFrame] = {
             "dashboard": self.dashboard,
+            "security": SecurityPage(content, self),
             "scan": ScanPage(content, self),
             "quarantine": VaultPage(content, self),
             "settings": SettingsPage(content, self),
@@ -245,6 +248,8 @@ class App(ctk.CTk):
             self.log_page.reload()
         elif key == "scan":
             self.pages["scan"].refresh_lists()
+        elif key == "security":
+            self.pages["security"].refresh()
         elif key == "quarantine":
             self.pages["quarantine"].refresh()
 

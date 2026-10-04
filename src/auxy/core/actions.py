@@ -1,4 +1,8 @@
-"""GUI ve tray'in ortak eylem katmani: yetki yoksa UAC ister, sonucu geri dondurur."""
+"""GUI ve tray'in ortak eylem katmani: yetki yoksa UAC ister, sonucu geri dondurur.
+
+Yukseltilmis islemler `python -m auxy <komut> ... --result <dosya>` olarak gizli pencerede,
+UAC ile calisir; sonuc (JSON) yalnizca %TEMP%'te `auxy-result-` onekli dosyaya yazilir.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +23,7 @@ class ActionResult:
     ok: bool
     message: str
     changed: bool = False
+    data: object = None
 
 
 def result_path_allowed(path: str) -> bool:
@@ -27,12 +32,35 @@ def result_path_allowed(path: str) -> bool:
     return p.parent == Path(tempfile.gettempdir()).resolve() and p.name.startswith(RESULT_PREFIX)
 
 
-def write_result(path: str, ok: bool, message: str, changed: bool = False) -> None:
+def write_result(path: str, ok: bool, message: str, changed: bool = False, data=None) -> None:
     if not result_path_allowed(path):
         raise ValueError("Gecersiz sonuc dosyasi yolu")
     Path(path).write_text(
-        json.dumps({"ok": ok, "message": message, "changed": changed}), encoding="utf-8"
+        json.dumps({"ok": ok, "message": message, "changed": changed, "data": data}),
+        encoding="utf-8",
     )
+
+
+def run_elevated(args: list[str], denied_message: str = "Yönetici izni verilmedi.",
+                 timeout_s: float = 120) -> ActionResult:
+    """`auxy <args> --result <tmp>` komutunu UAC ile calistirip sonucunu okur."""
+    fd, tmp = tempfile.mkstemp(prefix=RESULT_PREFIX, suffix=".json")
+    os.close(fd)
+    try:
+        code = system.run_elevated_and_wait([*args, "--result", tmp], timeout_s)
+        if code is None:
+            return ActionResult(False, denied_message)
+        try:
+            data = json.loads(Path(tmp).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return ActionResult(False, f"İşlem sonucu okunamadı (çıkış kodu {code}).")
+        return ActionResult(bool(data["ok"]), str(data["message"]), bool(data.get("changed")),
+                            data.get("data"))
+    finally:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 
 def _describe(res) -> ActionResult:
@@ -49,45 +77,55 @@ def cancel_scan() -> ActionResult:
         code, out = scan.cancel_scan_command()
         ok = code == 0
         return ActionResult(ok, "Tarama iptal edildi." if ok else f"İptal edilemedi: {out.strip()[-200:]}")
-    fd, tmp = tempfile.mkstemp(prefix=RESULT_PREFIX, suffix=".json")
-    os.close(fd)
-    try:
-        code = system.run_elevated_and_wait(["scan-cancel", "--result", tmp])
-        if code is None:
-            return ActionResult(False, "Yönetici izni verilmedi; tarama iptal edilemedi.")
-        try:
-            data = json.loads(Path(tmp).read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return ActionResult(False, f"İşlem sonucu okunamadı (çıkış kodu {code}).")
-        return ActionResult(bool(data["ok"]), str(data["message"]))
-    finally:
-        try:
-            os.remove(tmp)
-        except OSError:
-            pass
+    return run_elevated(["scan-cancel"], "Yönetici izni verilmedi; tarama iptal edilemedi.")
 
 
 def apply_setting(key: str, value: str) -> ActionResult:
-    """Ayari uygular. Yonetici degilsek UAC penceresi acar (gizli yardimci surec)."""
+    """Defender ayarini uygular. Yonetici degilsek UAC penceresi acar (gizli yardimci surec)."""
     if system.is_admin():
         try:
             return _describe(DefenderService().set(key, value))
         except AuxyError as exc:
             return ActionResult(False, str(exc))
+    return run_elevated(["set", key, value])
 
-    fd, tmp = tempfile.mkstemp(prefix=RESULT_PREFIX, suffix=".json")
-    os.close(fd)
-    try:
-        code = system.run_elevated_and_wait(["set", key, value, "--result", tmp])
-        if code is None:
-            return ActionResult(False, "Yönetici izni verilmedi.")
+
+def apply_winsec(key: str, value: str) -> ActionResult:
+    """Windows guvenlik ayari (guvenlik duvari, SmartScreen, Memory Integrity). Gerekirse UAC."""
+    from auxy.core import winsec
+
+    setting = winsec.WINSEC_SETTINGS.get(key)
+    if setting is not None and not setting.needs_admin or system.is_admin():
         try:
-            data = json.loads(Path(tmp).read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return ActionResult(False, f"İşlem sonucu okunamadı (çıkış kodu {code}).")
-        return ActionResult(bool(data["ok"]), str(data["message"]), bool(data.get("changed")))
-    finally:
+            res = winsec.WinSecService().set(key, value)
+        except AuxyError as exc:
+            return ActionResult(False, str(exc))
+        msg = f"{res.old} → {res.new}" if res.changed else f"zaten {res.new}"
+        if res.changed and setting is not None and setting.reboot:
+            msg += " (yeniden başlatma gerekir)"
+        return ActionResult(True, msg, res.changed)
+    return run_elevated(["winsec-set", key, value])
+
+
+def exclusion_op(op: str, kind: str, value: str = "") -> ActionResult:
+    """Defender dislamalari (list/add/remove). Hepsi yonetici gerektirir (okuma dahil)."""
+    from auxy.core import exclusions
+
+    if system.is_admin():
         try:
-            os.remove(tmp)
-        except OSError:
-            pass
+            return exclusions.run_op(op, kind, value)
+        except AuxyError as exc:
+            return ActionResult(False, str(exc))
+    exclusions.validate_op(op, kind, value)  # gecersiz girdi UAC'ye hic gitmesin
+    return run_elevated(["exclusion", op, kind, value])
+
+
+def read_tpm() -> ActionResult:
+    from auxy.core import winsec
+
+    if system.is_admin():
+        try:
+            return ActionResult(True, "TPM okundu.", data=winsec.read_tpm())
+        except AuxyError as exc:
+            return ActionResult(False, str(exc))
+    return run_elevated(["tpm-info"])
