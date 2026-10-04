@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auxysecurity"
+version = "0.0.1"
+description = "Kisisel Windows Security (Defender) kontrol paneli, tarayici ve karantina araci"
+requires-python = ">=3.12"
+dependencies = ["pywin32>=306"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-mock>=3", "psutil>=5.9", "ruff>=0.5"]
+
+[project.scripts]
+auxy = "auxy.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
