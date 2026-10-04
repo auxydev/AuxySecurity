@@ -1,6 +1,6 @@
 # M6 – Windows Security Kapsamı
 
-**Durum:** İncelemede (yönetici gerektiren yazma yolları gerçek makinede **henüz denenmedi**, bölüm 6)  **Tarih:** 2026-10-04
+**Durum:** İncelemede (yönetici yazma yolları gerçek makinede doğrulandı; **güvenlik duvarı yazma ve HVCI'yi gerçekten değiştirme hâlâ denenmedi**)  **Tarih:** 2026-10-04
 
 ## 1. Hedef
 Defender dışındaki Windows Security bölümlerini (güvenlik duvarı, SmartScreen, çekirdek yalıtımı, cihaz güvenliği, Güvenlik Merkezi, exploit protection) ve Defender dışlamalarını tek yerden görmek ve yönetmek. Windows Security'ye yönlendirme yok.
@@ -62,11 +62,17 @@ Defender dışındaki Windows Security bölümlerini (güvenlik duvarı, SmartSc
 | Bölüm 3 tablosundaki her satır ✔ / salt-okunur / kısayol olarak işaretli | ✔ (yukarıdaki harita; ✘ olanların nedeni bölüm 8'de) |
 | Tüm okuma yolları gerçek makinede çalışıyor | ✔ `winsec-get`: güvenlik duvarı, SmartScreen, HVCI çalışıyor, Secure Boot, VBS, Güvenlik Merkezi, exploit protection |
 | HKCU yazma + geri alma gerçek makinede | ✔ Store SmartScreen: on→off→on; geri almada kayıt defteri değeri **silindi** (orijinal durum). CLI ve **GUI sayfası** üzerinden |
-| Yönetici gerektiren yazma yolları gerçek makinede (güvenlik duvarı, SmartScreen uygulamalar, HVCI, dışlamalar, TPM) | ⏳ **Doğrulanmadı.** UAC penceresini sen reddettin; tekrar zorlamadım. Mantık 55 birim testiyle (sahte kayıt defteri / güvenlik duvarı / PowerShell) kanıtlı; gerçek Windows davranışı denenmedi |
+| SmartScreen uygulamalar (HKLM) yazma + geri alma | ✔ **Gerçek yönetici testi:** Uyar→Engelle (okunan: block) → geri alındı, kayıt değeri **silindi** (orijinal durum) |
+| Dışlamalar (HKLM/Defender) | ✔ **Gerçek:** liste boştu; klasör eklendi (listede göründü), tekrar ekleme "zaten var" (değişiklik yok), kaldırıldı, liste başlangıçla aynı; `C:\` reddedildi |
+| HVCI ayni degeri yazma | ✔ **Gerçek:** zaten açıktı, `changed=False` (gereksiz yeniden başlatma isteği yok) |
+| TPM okuma (yönetici) | ✔ **Gerçek:** var/hazır/etkin/etkinleştirilmiş; NUL dolgulu sürüm metni **hata bulundu ve düzeltildi** (test eklendi) |
+| Güvenlik duvarı profil yazma (UAC) | ⏳ **Doğrulanmadı:** `--firewall` adımı bilerek çalıştırılmadı (korumayı ~1,5 sn kapatır) |
+| HVCI'yi gerçekten değiştirme (açık→kapalı) | ⏳ **Doğrulanmadı:** yeniden başlatma gerektirir ve geri dönüşü riskli; bilerek denenmedi |
+| Test sonunda sistem başlangıçla aynı | ✔ `SONUC: BASLANGICLA AYNI` (kullanıcının yönetici çıktısı) |
 | Geçersiz dışlama girdileri reddedilir | ✔ birim testleri (`C:\`, Windows, joker, UNC, `exe`/`dll`/`ps1` vb.) |
 | Testler | ✔ 144 passed |
 
-### Senin testin: yönetici yazma yolları (isteğe bağlı, ~1 dk, UAC 1 kez)
+### Yönetici yazma testi (kullanıcı çalıştırdı, sonuç yukarıda)
 Betik **güvenlik duvarına dokunmaz** (varsayılan). Yaptığı geçici değişiklikler: SmartScreen "Uyar→Engelle→geri" (daha sıkı, güvenli), Store SmartScreen aç/kapa/geri, geçici bir klasörü dışlamalara ekleyip kaldırma, HVCI'ye aynı değeri yazma (değişiklik yapmamalı), TPM okuma. Her şey `finally` ile geri alınır ve sonda "BASLANGICLA AYNI" kontrolü yapar.
 ```powershell
 # Yönetici PowerShell'de, proje klasöründe:
@@ -85,7 +91,7 @@ Get-Content $env:TEMP\m6.txt
 | Boşta yük | Yok: bu bölüm yalnızca sayfa açılınca/yenileyince çalışır |
 
 ## 8. Bilinen sorunlar / Plandan sapmalar
-- **Yönetici yazma yolları denenmedi** (bölüm 6). Özellikle `Set-NetFirewallProfile`, HKLM SmartScreen değeri ve dışlama cmdlet'lerinin bu makinede (E3 geçiş / Tamper kaynağı belirsiz) Defender'ın `realtime`/`maps` gibi **sessizce yok sayma** davranışı sergileyip sergilemediği bilinmiyor. Servis yazdıktan sonra geri okuyup "değiştirilemedi" diyecek şekilde yazıldı, ama gerçek davranış doğrulanmadı.
+- **Güvenlik duvarı profil yazması denenmedi.** SmartScreen ve dışlamalar gerçek testte sessizce yok sayılmadı (Defender'ın `realtime`/`maps` davranışı bunlara yansımadı); `Set-NetFirewallProfile` için bilinmiyor. Servis yazdıktan sonra geri okuyup "değiştirilemedi" diyecek şekilde yazıldı.
 - **Bellek bütünlüğü yazma yolu tehlike taşır:** Kayıt defterinden açmak Windows arayüzündeki uyumluluk denetimini atlar; uyumsuz sürücü varsa sorun çıkabilir. Onay penceresi uyarıyor; **bu yolu gerçek makinede yazarak denemedim** (yeniden başlatma gerektirir ve geri dönüşü riskli).
 - **Windows Güvenlik Merkezi / SmartScreen kayıt değerleri sürüme bağlı:** Windows 11'in yeni sürümleri `SmartScreenEnabled` değerini farklı yorumlayabilir. Değer yazılıyor ve geri okunuyor ama Windows Security arayüzünde aynı etkiyi gösterdiği **doğrulanmadı**.
 - **Güvenlik duvarı kuralları (listele/ekle/sil) yapılmadı.** Plan "salt-okunur → sonra ekle/sil" demişti; bu M8 sonrası backlog.

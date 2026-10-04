@@ -310,7 +310,9 @@ def read_tpm(run: Callable[[str], str] | None = None) -> dict:
         "| ConvertTo-Json -Compress"
     )
     try:
-        return json.loads(out)
+        data = json.loads(out)
     except json.JSONDecodeError:
         raise WinSecError("TPM bilgisi ayrıştırılamadı.") from None
+    # Get-Tpm bazi alanlari sabit uzunlukta NUL ile doldurulmus dondurur
+    return {k: v.replace("\x00", "").strip() if isinstance(v, str) else v for k, v in data.items()}
 

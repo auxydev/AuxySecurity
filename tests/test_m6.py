@@ -188,6 +188,9 @@ def test_exploit_protection_parsing_and_error():
 
 def test_tpm_parse():
     assert winsec.read_tpm(lambda c: '{"TpmPresent":true}') == {"TpmPresent": True}
+    # gercek makinede gorulen NUL dolgusu temizlenir
+    got = winsec.read_tpm(lambda c: '{"ManufacturerVersion":"600.18.25.2027\\u0000\\u0000\\u0000"}')
+    assert got == {"ManufacturerVersion": "600.18.25.2027"}
     with pytest.raises(WinSecError):
         winsec.read_tpm(lambda c: "x")
 
