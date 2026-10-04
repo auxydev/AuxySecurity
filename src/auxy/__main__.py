@@ -339,19 +339,17 @@ def cmd_autostart(args) -> int:
         if st.installed:
             print(f"Son calisma sonucu: {st.last_result}")
         return 0
+    if not _helper_guard(args):
+        return 3
     tail = ["autostart", args.action]
     early = _elevate_or_fail(args, tail)
     if early is not None:
         return early
-    try:
-        autostart.install() if args.action == "install" else autostart.remove()
-    except AuxyError as exc:
-        print(f"HATA: {exc}", file=sys.stderr)
-        _pause_if_requested(args)
-        return 1
-    print("Baslangic gorevi " + ("kuruldu." if args.action == "install" else "kaldirildi."))
+    res = actions.autostart_op(args.action)  # yonetici oldugumuz icin dogrudan calisir
+    _report(args, res.ok, res.message, res.changed)
+    print(("" if res.ok else "HATA: ") + res.message, file=None if res.ok else sys.stderr)
     _pause_if_requested(args)
-    return 0
+    return 0 if res.ok else 1
 
 
 def cmd_set(args) -> int:
@@ -479,6 +477,7 @@ def main(argv: list[str] | None = None) -> int:
     p_auto.add_argument("action", choices=["install", "remove", "status"])
     p_auto.add_argument("--elevate", action="store_true")
     p_auto.add_argument("--pause", action="store_true", help=argparse.SUPPRESS)
+    p_auto.add_argument("--result", help=argparse.SUPPRESS)
     p_auto.set_defaults(func=cmd_autostart)
 
     p_rev = sub.add_parser("revert", help="Ayari orijinal degerine dondur (yonetici)")

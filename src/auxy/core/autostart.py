@@ -10,6 +10,7 @@ import os
 import subprocess
 import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from xml.sax.saxutils import escape
 
 from auxy.core import system
@@ -65,6 +66,13 @@ def build_task_xml(user: str, exe: str, workdir: str) -> str:
 """
 
 
+def project_dir() -> str:
+    """Gorev calisma dizini: proje koku (src/auxy/core/autostart.py -> ... -> kok). os.getcwd() KULLANILMAZ:
+    yukseltilmis yardimci surecte calisma dizini System32 olurdu."""
+    root = Path(__file__).resolve().parents[3]
+    return str(root if root.is_dir() else Path.home())
+
+
 def _current_user() -> str:
     return f"{os.environ.get('USERDOMAIN', '')}\\{os.environ['USERNAME']}".lstrip("\\")
 
@@ -79,7 +87,7 @@ def _schtasks(*args: str) -> subprocess.CompletedProcess:
 def install() -> None:
     if not system.is_admin():
         raise AuxyError("Gorevi kurmak icin yonetici yetkisi gerekir.")
-    xml = build_task_xml(_current_user(), system.python_exe(windowless=True), os.getcwd())
+    xml = build_task_xml(_current_user(), system.python_exe(windowless=True), project_dir())
     fd, path = tempfile.mkstemp(suffix=".xml")
     os.close(fd)
     try:
@@ -100,6 +108,11 @@ def remove() -> None:
     proc = _schtasks("/Delete", "/TN", TASK_NAME, "/F")
     if proc.returncode != 0:
         raise AuxyError(f"schtasks basarisiz: {(proc.stderr or proc.stdout).strip()}")
+
+
+def is_installed() -> bool:
+    """Hizli kontrol (yalnizca schtasks /Query)."""
+    return _schtasks("/Query", "/TN", TASK_NAME).returncode == 0
 
 
 def status() -> AutostartStatus:

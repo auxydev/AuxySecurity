@@ -107,6 +107,21 @@ def apply_winsec(key: str, value: str) -> ActionResult:
     return run_elevated(["winsec-set", key, value])
 
 
+def autostart_op(op: str) -> ActionResult:
+    """Oturum acilisinda baslatma gorevi: install / remove. Yonetici gerekir (degilsek UAC)."""
+    from auxy.core import autostart
+
+    if op not in ("install", "remove"):
+        return ActionResult(False, f"Geçersiz işlem: {op!r}")
+    if system.is_admin():
+        try:
+            autostart.install() if op == "install" else autostart.remove()
+        except AuxyError as exc:
+            return ActionResult(False, str(exc))
+        return ActionResult(True, "Başlangıç görevi kuruldu." if op == "install" else "Başlangıç görevi kaldırıldı.", True)
+    return run_elevated(["autostart", op])
+
+
 def exclusion_op(op: str, kind: str, value: str = "") -> ActionResult:
     """Defender dislamalari (list/add/remove). Hepsi yonetici gerektirir (okuma dahil)."""
     from auxy.core import exclusions

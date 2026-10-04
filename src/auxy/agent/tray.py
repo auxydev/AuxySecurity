@@ -11,6 +11,10 @@ from auxy.core import actions, defender, system
 from auxy.core import config as cfgmod
 from auxy.core.log import get_logger
 from auxy.core.settings import SETTINGS, TOGGLE_KEYS
+from auxy.core.winsec import WINSEC_SETTINGS, WinSecService
+
+FW_KEYS = ("fw_domain", "fw_private", "fw_public")
+FW_LABELS = {"fw_domain": "Etki alanı ağı", "fw_private": "Özel ağ", "fw_public": "Genel ağ"}
 from auxy.gui import viewmodel as vm
 
 REFRESH_S = 60  # dakikada bir (~100 ms WMI); aradaki sure tamamen uykuda
@@ -37,6 +41,7 @@ class Agent:
         self._wake = threading.Event()
         self.status: defender.DefenderStatus | None = None
         self.health: vm.Health | None = None
+        self.fw: dict[str, str] = {}
         from auxy.agent.icon import make_icon
 
         self._make_icon = make_icon
@@ -52,6 +57,11 @@ class Agent:
         except Exception as exc:  # WMI gecici hatasi ajani dusurmesin
             self._log.warning("tray durum okunamadi: %s", exc)
             self.status = self.health = None
+        try:
+            self.fw = WinSecService().get_many(FW_KEYS)  # yalnizca kayit defteri, hafif
+        except Exception as exc:
+            self._log.info("guvenlik duvari durumu okunamadi: %s", exc)
+            self.fw = {}
         self.icon.icon = self._make_icon(self.health.level if self.health else None)
         self.icon.title = tooltip(self.health)
         self.icon.update_menu()
@@ -90,6 +100,12 @@ class Agent:
                 enabled=self.status is not None,
             )
         yield item(
+            "Güvenlik duvarı",
+            self._pystray.Menu(*(
+                item(FW_LABELS[k], self._fw_action(k), checked=self._fw_checked(k)) for k in FW_KEYS)),
+            enabled=bool(self.fw),
+        )
+        yield item(
             SETTINGS["maps"].label,
             self._pystray.Menu(*(
                 item(shown, self._maps_action(value), checked=self._maps_checked(value), radio=True)
@@ -108,6 +124,27 @@ class Agent:
             self._start(self._toggle, key)
 
         return action
+
+    def _fw_checked(self, key: str):
+        def checked(item):
+            return self.fw.get(key) == "on"
+
+        return checked
+
+    def _fw_action(self, key: str):
+        def action(icon, item):
+            self._start(self._toggle_fw, key)
+
+        return action
+
+    def _toggle_fw(self, key: str) -> None:
+        turning_off = self.fw.get(key) == "on"
+        if turning_off and not system.confirm_dialog(
+                f"{WINSEC_SETTINGS[key].label} KAPATILACAK.\nBilgisayarın ağdan gelen saldırılara açık kalır.\n\nDevam edilsin mi?"):
+            return
+        res = actions.apply_winsec(key, "off" if turning_off else "on")
+        self._notify(f"{WINSEC_SETTINGS[key].label}: {res.message}")
+        self.refresh()
 
     def _maps_action(self, value: str):
         def action(icon, item):

@@ -64,8 +64,9 @@ def test_scan_lock_abandoned_by_dead_thread_is_recovered():
     t = threading.Thread(target=die_holding)
     t.start()
     t.join(5)
+    # join() dondugunde isletim sistemi sahipligi henuz "terk edilmis" isaretlememis olabilir: en gec 2 sn icinde devralinmali
     lock = system.ScanLock()
-    assert lock.acquire() is True  # WAIT_ABANDONED devralinir
+    assert wait_for(lock.acquire, timeout=2.0)  # WAIT_ABANDONED devralinir
     lock.release()
 
 
@@ -179,30 +180,7 @@ def test_config_recursive_roundtrip_and_helper_restart():
 
 
 # ---------------- surukle-birak ----------------
-@pytest.fixture(scope="module")
-def _app_module():
-    """Tk koku surec basina bir kez: ayni surecte art arda Tk() acip kapatmak Tcl hatasi verebiliyor."""
-    os_env = __import__("os").environ
-    os_env["AUXY_INSTANCE"] = "_backfill1"
-    from auxy.gui import app as gui
-
-    a = gui.App()
-    a.update()
-    yield a
-    a.destroy()
-
-
-@pytest.fixture
-def app(_app_module, tmp_path):
-    a = _app_module
-    page = a.pages["scan"]
-    saved = (page.manager.run, page.start, page.scan_paths)
-    page._cancel_all = False
-    yield a
-    page.manager.run, page.start, page.scan_paths = saved  # testler arasi sizinti olmasin
-    page._set_busy(False)
-    a.update()
-
+# (app fixture'i tests/conftest.py'de: tum GUI testleri tek Tk kokunu paylasir)
 
 def pump(a, cond, timeout=8.0):
     end = time.time() + timeout

@@ -7,8 +7,8 @@ from tkinter import filedialog
 import customtkinter as ctk
 
 from auxy import __version__
+from auxy.core import actions, autostart, contextmenu, system
 from auxy.core import config as cfgmod
-from auxy.core import contextmenu, system
 
 MUTED = ("gray40", "gray60")
 HOURS = [f"{h:02d}:00" for h in range(24)]
@@ -79,9 +79,17 @@ class SettingsPage(ctk.CTkFrame):
                      anchor="w", text_color=MUTED, wraplength=520, justify="left").grid(
             row=2, column=0, columnspan=3, sticky="w", padx=16, pady=(0, 10))
 
+        # ---- baslangic ----
+        card = self._card(body, "Başlangıç", 3)
+        self.autostart_sw = self._switch(card, 1, "Windows açılışında tray ajanını başlat", self._toggle_autostart)
+        ctk.CTkLabel(card, text="Görev Zamanlayıcı ile oturum açılışından 30 sn sonra, yüksek yetkiyle (her açılışta "
+                                "UAC sorulmadan) başlar. Kurmak ve kaldırmak yönetici izni (UAC) ister.",
+                     anchor="w", text_color=MUTED, wraplength=520, justify="left").grid(
+            row=2, column=0, columnspan=3, sticky="w", padx=16, pady=(0, 10))
+
         ctk.CTkLabel(body, text=f"AuxySecurity {__version__}   |   Yönetici: "
                                 f"{'evet' if system.is_admin() else 'hayır'}", text_color=MUTED).grid(
-            row=3, column=0, sticky="w", pady=(4, 0))
+            row=4, column=0, sticky="w", pady=(4, 0))
         self.load_into_widgets()
 
     # ---- yapi ----
@@ -109,6 +117,7 @@ class SettingsPage(ctk.CTkFrame):
                         (self.usb_sw, c.usb_scan), (self.sched_sw, c.scheduled.enabled),
                         (self.ctx_sw, contextmenu.is_installed())):
             (sw.select if val else sw.deselect)()
+        (self.autostart_sw.select if autostart.is_installed() else self.autostart_sw.deselect)()
         self.day_menu.set(cfgmod.WEEKDAYS[c.scheduled.weekday])
         self.hour_menu.set(f"{c.scheduled.hour:02d}:00")
         self.kind_menu.set(next(k for k, v in KINDS.items() if v == c.scheduled.kind))
@@ -160,6 +169,19 @@ class SettingsPage(ctk.CTkFrame):
         system.signal_config_changed()
         self.load_into_widgets()
         self.say("İndirilenler klasörüne sıfırlandı.")
+
+    # ---- baslangic gorevi ----
+    def _toggle_autostart(self) -> None:
+        op = "install" if self.autostart_sw.get() else "remove"
+        self.say("Başlangıç görevi güncelleniyor… (yönetici izni istenebilir)")
+        self.app.worker.submit(lambda: actions.autostart_op(op), self._autostart_done)
+
+    def _autostart_done(self, res, exc) -> None:
+        if exc is not None:
+            self.say(str(exc), error=True)
+        else:
+            self.say(res.message, error=not res.ok)
+        self.load_into_widgets()  # gercek durumu geri oku (UAC reddedildiyse anahtar eski haline doner)
 
     # ---- sag tik ----
     def _toggle_context(self) -> None:

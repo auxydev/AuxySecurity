@@ -210,6 +210,12 @@ class ScanLock:
             self._h = None
 
 
+def confirm_dialog(text: str, title: str = "AuxySecurity") -> bool:
+    """Evet/Hayir kutusu (GUI penceresi olmadan, tray icin). Evet -> True. Uyari simgeli, en ustte."""
+    MB_YESNO, MB_ICONWARNING, MB_TOPMOST, IDYES = 0x4, 0x30, 0x40000, 6
+    return ctypes.windll.user32.MessageBoxW(0, text, title, MB_YESNO | MB_ICONWARNING | MB_TOPMOST) == IDYES
+
+
 def focus_window(title: str) -> bool:
     user32 = ctypes.windll.user32
     hwnd = user32.FindWindowW(None, title)

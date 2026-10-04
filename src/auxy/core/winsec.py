@@ -139,6 +139,10 @@ class WinSecService:
     def get_all(self) -> dict[str, str]:
         return {k: s.name_of(self.read_raw(s)) for k, s in WINSEC_SETTINGS.items()}
 
+    def get_many(self, keys: tuple[str, ...] | list[str]) -> dict[str, str]:
+        """Yalnizca istenen anahtarlar (tray gibi hafif okuyucular icin)."""
+        return {k: WINSEC_SETTINGS[k].name_of(self.read_raw(WINSEC_SETTINGS[k])) for k in keys}
+
     # ---- yazma ----
     def set(self, key: str, name: str) -> WinSetResult:
         s = self._lookup(key)
