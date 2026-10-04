@@ -10,6 +10,7 @@ from auxy.core.settings import SETTINGS
 from auxy.core.settings import TOGGLE_KEYS as TOGGLES
 from auxy.gui import viewmodel as vm
 from auxy.gui.scan_page import ScanPage
+from auxy.gui.vault_page import VaultPage
 from auxy.gui.worker import Worker
 
 COLORS = {vm.OK: "#2e9e5b", vm.WARN: "#d9932b", vm.CRIT: "#d64545"}
@@ -224,7 +225,7 @@ class App(ctk.CTk):
         self.pages: dict[str, ctk.CTkFrame] = {
             "dashboard": self.dashboard,
             "scan": ScanPage(content, self),
-            "quarantine": PlaceholderPage(content, "Karantina", "Karantina kasası: M5'te eklenecek."),
+            "quarantine": VaultPage(content, self),
             "settings": SettingsPage(content, self),
             "log": self.log_page,
         }
@@ -244,6 +245,8 @@ class App(ctk.CTk):
             self.log_page.reload()
         elif key == "scan":
             self.pages["scan"].refresh_lists()
+        elif key == "quarantine":
+            self.pages["quarantine"].refresh()
 
     # ---- veri ----
     def refresh(self) -> None:

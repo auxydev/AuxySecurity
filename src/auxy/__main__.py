@@ -147,6 +147,50 @@ def cmd_update_signatures(_args) -> int:
     return 0 if ok else 1
 
 
+def cmd_vault(args) -> int:
+    from auxy.core.vault import Vault
+
+    try:
+        vault = Vault.default()
+        if args.action == "add":
+            if not args.target:
+                print("HATA: dosya yolu ver: auxy vault add <yol>", file=sys.stderr)
+                return 2
+            item = vault.add(args.target, args.reason)
+            print(f"Kasaya alındı: {item.name}  (id {item.id[:8]}, {item.size} bayt, sha256 {item.sha256[:16]}…)")
+        elif args.action == "list":
+            items = vault.list()
+            if not items:
+                print("Kasa boş.")
+            for i in items:
+                print(f"{i.id[:8]}  {i.quarantined_at}  {i.size:>10} B  {i.original_path}  [{i.reason}]")
+        else:
+            if not args.target:
+                print(f"HATA: kayıt id'si ver: auxy vault {args.action} <id>", file=sys.stderr)
+                return 2
+            item = _find_vault_item(vault, args.target)
+            if args.action == "restore":
+                out = vault.restore(item.id, args.to, args.overwrite)
+                print(f"Geri yüklendi: {out}")
+            else:  # delete
+                if not args.yes:
+                    print("HATA: kalıcı silme için --yes ekle (geri alınamaz).", file=sys.stderr)
+                    return 2
+                vault.delete(item.id)
+                print(f"Kalıcı olarak silindi: {item.name}")
+    except AuxyError as exc:
+        print(f"HATA: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def _find_vault_item(vault, prefix: str):
+    matches = [i for i in vault.list() if i.id.startswith(prefix)]
+    if len(matches) != 1:
+        raise AuxyError(f"'{prefix}' ile eşleşen {len(matches)} kayıt var; tam id'yi (en az 8 karakter) ver.")
+    return matches[0]
+
+
 def cmd_agent(_args) -> int:
     from auxy.agent.tray import run
 
@@ -255,6 +299,15 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("threats", help="Tehdit tespitlerini listele").set_defaults(func=cmd_threats)
     sub.add_parser("update-signatures", help="Virüs imzalarını güncelle").set_defaults(
         func=cmd_update_signatures)
+
+    p_vault = sub.add_parser("vault", help="Karantina kasası")
+    p_vault.add_argument("action", choices=["add", "list", "restore", "delete"])
+    p_vault.add_argument("target", nargs="?", help="add: dosya yolu; restore/delete: kayıt id'si")
+    p_vault.add_argument("--reason", default="Elle eklendi")
+    p_vault.add_argument("--to", help="restore: farklı hedef yol")
+    p_vault.add_argument("--overwrite", action="store_true")
+    p_vault.add_argument("--yes", action="store_true", help="delete: onay")
+    p_vault.set_defaults(func=cmd_vault)
 
     sub.add_parser("agent", help="Tray ajanini baslat").set_defaults(func=cmd_agent)
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from tkinter import filedialog
 
 import customtkinter as ctk
@@ -71,8 +72,9 @@ class ScanPage(ctk.CTkFrame):
             side="left")
         ctk.CTkButton(head, text="Yenile", width=70, height=24, command=self.refresh_lists).pack(
             side="right")
-        self.threat_box = ctk.CTkTextbox(self, height=140, wrap="none")
+        self.threat_box = ctk.CTkScrollableFrame(self, height=140, corner_radius=8)
         self.threat_box.grid(row=5, column=0, sticky="nsew")
+        self.threat_box.columnconfigure(0, weight=1)
 
         ctk.CTkLabel(self, text="Tarama geçmişi", font=ctk.CTkFont(size=15, weight="bold"),
                      anchor="w").grid(row=6, column=0, sticky="w", pady=(14, 4))
@@ -88,11 +90,29 @@ class ScanPage(ctk.CTkFrame):
                    or "(henüz tarama yok)")
 
     def _show_threats(self, items, exc) -> None:
-        if exc is not None:
-            text = f"Tehditler okunamadı: {exc}"
-        else:
-            text = "\n".join(format_detection(d) for d in items[:30]) or "Kayıtlı tehdit yok."
-        self._fill(self.threat_box, text)
+        for w in self.threat_box.winfo_children():
+            w.destroy()
+        if exc is not None or not items:
+            text = f"Tehditler okunamadı: {exc}" if exc is not None else "Kayıtlı tehdit yok."
+            ctk.CTkLabel(self.threat_box, text=text, text_color=MUTED, anchor="w").grid(
+                row=0, column=0, sticky="w", padx=8, pady=6)
+            return
+        r = 0
+        for d in items[:30]:
+            when = d.time.strftime("%Y-%m-%d %H:%M") if d.time else "?"
+            state = "işlem uygulandı" if d.handled else "beklemede"
+            ctk.CTkLabel(self.threat_box, anchor="w", font=ctk.CTkFont(weight="bold"),
+                         text=f"{when}   {d.severity}   {d.name}   [{state}]").grid(
+                row=r, column=0, columnspan=2, sticky="w", padx=8, pady=(6, 0))
+            r += 1
+            for p in d.paths:
+                ctk.CTkLabel(self.threat_box, text=p, anchor="w", text_color=MUTED,
+                             wraplength=520, justify="left").grid(row=r, column=0, sticky="w", padx=(22, 4))
+                if Path(p).is_file():  # Defender dokunmadiysa / geri yuklenmisse kasaya alinabilir
+                    ctk.CTkButton(self.threat_box, text="Kasaya al", width=80, height=24,
+                                  command=lambda path=p, n=d.name: self.app.pages["quarantine"]
+                                  .quarantine(path, f"Tehdit: {n}")).grid(row=r, column=1, padx=6)
+                r += 1
 
     @staticmethod
     def _fill(box: ctk.CTkTextbox, text: str) -> None:
