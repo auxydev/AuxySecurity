@@ -114,6 +114,14 @@ def test_not_applied_is_detected_and_backup_dropped():
     assert backup.load() == {}
 
 
+def test_silent_ignore_message_points_to_windows_security():
+    f = FakeDefender(apply=False)
+    with pytest.raises(TamperBlockedError, match="windowsdefender://threatsettings"):
+        svc(f).set("realtime", "off")
+    with pytest.raises(TamperBlockedError, match="grup ilkesi"):
+        svc(f).set("pua", "off")
+
+
 def test_powershell_failure_drops_backup():
     f = FakeDefender()
     f.rc = 1

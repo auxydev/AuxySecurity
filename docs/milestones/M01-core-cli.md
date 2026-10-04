@@ -1,6 +1,6 @@
 # M1 – Çekirdek Kütüphane + CLI
 
-**Durum:** İncelemede (gerçek yönetici testi senden bekleniyor)  **Tarih:** 2026-10-04
+**Durum:** İncelemede (3/5 ayar gerçek makinede doğrulandı; `realtime` ve `maps` Windows tarafından engelleniyor)  **Tarih:** 2026-10-04
 
 ## 1. Hedef
 UI'dan bağımsız, test edilebilir bir servis katmanı: Defender ayarlarını okuma, **güvenli** yazma,
@@ -45,7 +45,7 @@ Gerçek çıktı (yönetici olmayan oturum):
 ## 5. Teknik kararlar
 - **Orijinal-koruma kuralı:** Bir ayarın ilk değişikliğinde eski değer yedeklenir; sonraki değişiklikler yedeğin üstüne yazmaz. `revert` her zaman kullanıcının başlangıç durumuna döner (test: `test_original_not_overwritten_by_second_change`).
 - **Yazma sonrası doğrulama:** `Set-MpPreference` hata vermese de Defender değeri uygulamayabilir (Tamper/grup ilkesi). Servis yazdıktan sonra WMI'dan geri okur; uygulanmadıysa hata verir ve yedeği geri alır.
-- **Tamper erken engeli:** Tamper açıkken `realtime` ve `maps` için komut hiç çalıştırılmaz; kullanıcıya elle kapatma yolu söylenir. Bypass **denenmez**.
+- **Tamper erken engeli:** Tamper açıkken `realtime` ve `maps` için komut hiç çalıştırılmaz; kullanıcıya elle kapatma yolu söylenir. Bypass **denenmez**. (Not: Tamper bayrağı kapalı görünse de Windows bu iki ayarı yine engelleyebiliyor; asıl güvence yazma sonrası geri okumadır.)
 - **Enjeksiyon önlemi:** Kullanıcı girdisi komuta girmez; değer tablodan seçilir (`test_invalid_key_and_value`).
 - **Yedek konumu `%LOCALAPPDATA%`:** Ajan ve CLI aynı kullanıcıyla yükseltildiğinde aynı yolu görür. Farklı yönetici hesabı kullanılırsa yol değişir (bkz. bilinen sorunlar).
 
@@ -56,19 +56,26 @@ Gerçek çıktı (yönetici olmayan oturum):
 | Yönetici olmayan oturumda `get` çalışır | ✔ gerçek makinede |
 | Yönetici olmayan oturumda `set`/`revert` temiz hata verir (rc=3), hiçbir şey değişmez | ✔ gerçek makinede |
 | Geçersiz değer reddedilir (rc=2) | ✔ |
-| Gerçek makinede aç/kapat doğrulandı | ⏳ **Bekliyor:** UAC onayı gerekiyor, ben veremem. Aşağıdaki "senin testin" bölümüne bak |
-| Hata durumları temiz (Tamper, PS hatası, uygulanmadı) | ✔ birim testleriyle; gerçek Tamper senaryosu denenmedi (Tamper bu makinede kapalı) |
+| Gerçek makinede yönetici yazma testi | ✔ **Kısmen.** Aşağıdaki tabloya bak |
+| Hata durumları temiz (uygulanmadı tespiti) | ✔ Gerçek makinede `maps` için doğrulandı, kullanıcı hata mesajını gördü |
 
-### Senin testin (2 dk, düşük riskli)
-Bulut koruma seviyesini geçici değiştirir, geri alır. Gerçek zamanlı korumaya **dokunmaz**.
-```powershell
-.\.venv\Scripts\python -m auxy set maps advanced --elevate
-.\.venv\Scripts\python -m auxy get maps       # advanced olmalı
-.\.venv\Scripts\python -m auxy revert --elevate
-.\.venv\Scripts\python -m auxy get maps       # basic'e dönmeli
-```
-Beklenen: UAC sorar; açılan pencerede `maps: basic -> advanced` ve sonra `maps: advanced -> basic (orijinale donuldu)`.
-Hata alırsan penceredeki mesajı bana yapıştır.
+### Gerçek makinede yönetici yazma testi (2026-10-04)
+Her ayar yazıldı, WMI'dan geri okundu, eski değere döndürüldü (hepsi geri alındı, son durum başlangıçla aynı).
+
+| Ayar | Yazma | Geri alma | Sonuç |
+|---|---|---|---|
+| `pua` (1→0→1) | ✔ değişti | ✔ | **Çalışıyor** |
+| `cfa` (0→1→0) | ✔ değişti | ✔ | **Çalışıyor** |
+| `netprot` (0→1→0) | ✔ değişti | ✔ | **Çalışıyor** |
+| `realtime` (açık→kapalı) | ✘ komut hatasız döndü, değer değişmedi | – | **Windows sessizce yok sayıyor** |
+| `maps` (1→2), int ve isim (`Advanced`) ile | ✘ aynı | – | **Windows sessizce yok sayıyor** |
+
+Bulgu: `IsTamperProtected` bu makinede `False` (kaynak: "E3 transition", `TamperProtection` kayıt değeri 0),
+**yine de** `realtime` ve `maps` dışarıdan değişmiyor. Yani Tamper bayrağına güvenip "yazılabilir" demek yanlış;
+doğru ölçüt **yazdıktan sonra geri okumak**; servis bunu zaten yapıyor. Bu yüzden "uygulanmadı" hatası bir bug değil, doğru tespit.
+Grup ilkesi / MDM / Azure AD yönetimi yok (kayıt defteri ve `dsregcmd` ile kontrol edildi).
+
+**Karar gerektiren konu (bkz. bölüm 8):** `realtime` ve `maps` için doğrudan yazma çalışmıyor.
 
 ## 7. Performans ölçümü
 - `get`: tek WMI sorgusu, ~100 ms (M0 ölçümüyle aynı).
@@ -76,7 +83,10 @@ Hata alırsan penceredeki mesajı bana yapıştır.
 - Boşta yük: yok, bu milestone'da arka plan süreç yok.
 
 ## 8. Bilinen sorunlar / Riskler
-- Yazma yolu **gerçek yönetici oturumunda henüz doğrulanmadı** (yukarıda).
+- **`realtime` ve `maps` bu makinede `Set-MpPreference` ile değişmiyor** (yukarıdaki tablo). Hızlı aç/kapat hedefinin en görünür parçası olan gerçek zamanlı koruma anahtarı doğrudan çalışmıyor.
+  - Denenen ve **engellenen** yol: `HKLM\SOFTWARE\Policies\Microsoft\Windows Defender` altına `DisableRealtimeMonitoring`/`SpynetReporting` ilke değeri yazmak. Claude Code'un otomatik izin sistemi bunu "güvenliği zayıflatma" olarak reddetti; bu yolu atlatmaya çalışmadım. Ayrıca kalıcı ilke yazmak Windows Security'de "kuruluşunuz yönetiyor" uyarısı çıkarır ve geri alınması unutulabilir.
+  - Kalan seçenekler (M3'te ele alınacak): (a) `realtime`/`maps` için salt-okunur durum + `windowsdefender://threatsettings` kısayolu; (b) Windows Security arayüzünü otomasyonla tıklamak (kırılgan, önerilmez); (c) kullanıcı açıkça isterse ilke yolu, süre sınırı ve otomatik geri alma ile.
+  - Mevcut hata mesajı artık kullanıcıyı Windows Security'ye yönlendiriyor.
 - `Set-MpPreference` çıktısı Türkçe Windows'ta yerelleştirilmiş hata verebilir; olduğu gibi gösteriliyor.
 - Yedek, kullanıcıya özel (`%LOCALAPPDATA%`). Standart kullanıcıdan yönetici hesabına yükseltme (farklı hesap) yedek yolunu değiştirir; M3'te ajan tek hesapla çalışacağı için sorun olmayacak, gerekirse `%ProgramData%`'ya taşınır.
 - Defender dışında bir üçüncü taraf AV kuruluysa WMI sınıfları farklı davranabilir (bu makinede test edilemez).

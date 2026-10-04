@@ -125,9 +125,17 @@ class DefenderService:
                 backup.forget(setting.key)
             self._log.error("set %s uygulanmadi: %s -> istenen %s, okunan %s",
                             setting.key, old_name, new_name, setting.name_of(after))
+            if setting.tamper_guarded:
+                hint = (
+                    "Windows bu ayari, Tamper Protection 'kapali' gorunse bile disaridan "
+                    "degistirmeye izin vermiyor (komut hata vermeden yok sayiliyor). "
+                    "Windows Security'den elle degistir: windowsdefender://threatsettings"
+                )
+            else:
+                hint = "Bir grup ilkesi veya yonetim politikasi engelliyor olabilir."
             raise TamperBlockedError(
                 f"'{setting.key}' degisikligi uygulanmadi (deger hala {setting.name_of(after)}). "
-                "Tamper Protection veya bir grup ilkesi engelliyor olabilir."
+                + hint
             )
         self._log.info("AYAR %s: %s -> %s", setting.key, old_name, new_name)
         return SetResult(setting.key, old_name, new_name, changed=True)
