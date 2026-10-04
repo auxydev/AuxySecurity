@@ -7,7 +7,7 @@ name = "auxysecurity"
 version = "0.0.1"
 description = "Kisisel Windows Security (Defender) kontrol paneli, tarayici ve karantina araci"
 requires-python = ">=3.12"
-dependencies = ["pywin32>=306", "customtkinter>=5", "pystray>=0.19", "pillow>=10", "cryptography>=42"]
+dependencies = ["pywin32>=306", "customtkinter>=5", "pystray>=0.19", "pillow>=10", "cryptography>=42", "watchdog>=4"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-mock>=3", "psutil>=5.9", "ruff>=0.5"]

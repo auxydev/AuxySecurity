@@ -14,6 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from auxy.core import backup, system
+from auxy.core.defender import com_apartment
 from auxy.core.log import get_logger
 from auxy.core.service import AuxyError, NotAdminError, UnknownSettingError
 
@@ -235,16 +236,17 @@ def decode_product_state(state: int) -> tuple[bool, bool]:
 def read_security_center() -> list[SecurityProduct]:
     import win32com.client
 
-    svc = win32com.client.GetObject(r"winmgmts:\\.\root\SecurityCenter2")
     out = []
-    for cls, cat in (("AntiVirusProduct", "Antivirüs"), ("FirewallProduct", "Güvenlik duvarı"),
-                     ("AntiSpywareProduct", "Casus yazılımdan koruma")):
-        try:
-            for p in svc.ExecQuery(f"SELECT * FROM {cls}"):
-                enabled, fresh = decode_product_state(int(p.productState))
-                out.append(SecurityProduct(cat, str(p.displayName), enabled, fresh))
-        except Exception:  # sinif yok / erisim yok
-            continue
+    with com_apartment():
+        svc = win32com.client.GetObject(r"winmgmts:\\.\root\SecurityCenter2")
+        for cls, cat in (("AntiVirusProduct", "Antivirüs"), ("FirewallProduct", "Güvenlik duvarı"),
+                         ("AntiSpywareProduct", "Casus yazılımdan koruma")):
+            try:
+                for p in svc.ExecQuery(f"SELECT * FROM {cls}"):
+                    enabled, fresh = decode_product_state(int(p.productState))
+                    out.append(SecurityProduct(cat, str(p.displayName), enabled, fresh))
+            except Exception:  # sinif yok / erisim yok
+                continue
     return out
 
 
@@ -262,10 +264,11 @@ def read_device_security(env: WinEnv | None = None) -> DeviceSecurity:
     try:
         import win32com.client
 
-        svc = win32com.client.GetObject(r"winmgmts:\\.\root\Microsoft\Windows\DeviceGuard")
-        for dg in svc.ExecQuery("SELECT * FROM Win32_DeviceGuard"):
-            vbs = int(dg.VirtualizationBasedSecurityStatus) == 2
-            hvci = 2 in [int(x) for x in (dg.SecurityServicesRunning or [])]
+        with com_apartment():
+            svc = win32com.client.GetObject(r"winmgmts:\\.\root\Microsoft\Windows\DeviceGuard")
+            for dg in svc.ExecQuery("SELECT * FROM Win32_DeviceGuard"):
+                vbs = int(dg.VirtualizationBasedSecurityStatus) == 2
+                hvci = 2 in [int(x) for x in (dg.SecurityServicesRunning or [])]
     except Exception:
         pass
     return DeviceSecurity(None if sb is None else bool(sb), vbs, hvci)

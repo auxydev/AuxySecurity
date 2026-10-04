@@ -6,7 +6,9 @@ import os
 import subprocess
 import threading
 
+from auxy.agent.helpers import HelperManager
 from auxy.core import actions, defender, system
+from auxy.core import config as cfgmod
 from auxy.core.log import get_logger
 from auxy.core.settings import SETTINGS, TOGGLE_KEYS
 from auxy.gui import viewmodel as vm
@@ -29,6 +31,8 @@ class Agent:
         from auxy.core.scan import ScanManager
 
         self._scans = ScanManager()
+        self._helpers = HelperManager(self._scans, self._notify)
+        self._config_waiter = system.ConfigWaiter()
         self._stop = threading.Event()
         self._wake = threading.Event()
         self.status: defender.DefenderStatus | None = None
@@ -74,6 +78,9 @@ class Agent:
         yield sep
         yield item("Paneli aç", self.open_gui, default=True)
         yield item("Hızlı tara", self._quick_scan_action, enabled=self._scan_enabled)
+        lt = self._helpers.last_threat
+        if lt is not None and lt.quarantinable():
+            yield item(f"Tehdidi kasaya al: {lt.name}"[:90], self._quarantine_last_action)
         yield sep
         for key in TOGGLE_KEYS:
             yield item(
@@ -120,6 +127,42 @@ class Agent:
 
         return checked
 
+    def _notify(self, message: str) -> None:
+        try:
+            self.icon.notify(message, "AuxySecurity")
+        except Exception as exc:  # simge henuz hazir degilse
+            self._log.info("bildirim gosterilemedi (%s): %s", exc, message)
+
+    def _quarantine_last_action(self, icon, item):
+        self._start(self._quarantine_last)
+
+    def _quarantine_last(self) -> None:
+        from auxy.core.service import AuxyError
+        from auxy.core.vault import Vault
+
+        lt = self._helpers.last_threat
+        if lt is None or not lt.quarantinable():
+            return
+        try:
+            vitem = Vault.default().add(lt.path, f"Tehdit: {lt.name}")
+            lt.handled = True
+            self._notify(f"Kasaya alındı: {vitem.name}")
+        except AuxyError as exc:
+            self._notify(str(exc))
+
+    def _config_loop(self) -> None:
+        while not self._stop.is_set():
+            self._config_waiter.wait()  # GUI ayar kaydedince uyanir; baska zaman uykuda
+            if self._stop.is_set():
+                break
+            self._helpers.apply(cfgmod.load())
+            self._wake.set()
+
+    def _setup(self, icon) -> None:
+        icon.visible = True
+        self._helpers.apply(cfgmod.load())
+        threading.Thread(target=self._config_loop, daemon=True, name="auxy-config").start()
+
     def _quick_scan_action(self, icon, item):
         self._start(self._quick_scan)
 
@@ -161,16 +204,18 @@ class Agent:
     def quit(self, *_args) -> None:
         self._stop.set()
         self._wake.set()
+        self._config_waiter.wake()
+        self._helpers.stop_all()
         self.icon.stop()
 
     def run(self) -> int:
         threading.Thread(target=self._loop, daemon=True).start()
-        self.icon.run()  # ana is parcacigini bloke eder (mesaj dongusu)
+        self.icon.run(setup=self._setup)  # ana is parcacigini bloke eder (mesaj dongusu)
         return 0
 
 
 def run() -> int:
-    if not system.acquire_single_instance("AuxySecurityAgent"):
+    if not system.acquire_single_instance(system.agent_mutex_name()):
         return 0
     get_logger().info("Ajan basladi (pid=%s, yonetici=%s)", os.getpid(), system.is_admin())
     return Agent().run()

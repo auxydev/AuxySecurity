@@ -11,6 +11,7 @@ from auxy.core.settings import TOGGLE_KEYS as TOGGLES
 from auxy.gui import viewmodel as vm
 from auxy.gui.scan_page import ScanPage
 from auxy.gui.security_page import SecurityPage
+from auxy.gui.settings_page import SettingsPage
 from auxy.gui.vault_page import VaultPage
 from auxy.gui.worker import Worker
 
@@ -149,25 +150,6 @@ class PlaceholderPage(ctk.CTkFrame):
         ctk.CTkLabel(self, text=note, justify="left", anchor="w").pack(anchor="w")
 
 
-class SettingsPage(ctk.CTkFrame):
-    def __init__(self, master, app: App):
-        super().__init__(master, fg_color="transparent")
-        ctk.CTkLabel(self, text="Ayarlar", font=ctk.CTkFont(size=22, weight="bold")).pack(
-            anchor="w", pady=(0, 12))
-        ctk.CTkLabel(self, text="Tema").pack(anchor="w")
-        menu = ctk.CTkOptionMenu(
-            self, values=["Sistem", "Açık", "Koyu"], width=140,
-            command=lambda v: ctk.set_appearance_mode({"Sistem": "system", "Açık": "light",
-                                                        "Koyu": "dark"}[v]),
-        )
-        menu.pack(anchor="w", pady=(2, 16))
-        admin = "evet" if system.is_admin() else "hayır"
-        ctk.CTkLabel(self, text=f"AuxySecurity {__version__}   |   Yönetici: {admin}",
-                     text_color=("gray40", "gray60")).pack(anchor="w")
-        ctk.CTkLabel(self, text="Başlangıçta çalıştırma ve tray: M3'te eklenecek.",
-                     text_color=("gray40", "gray60")).pack(anchor="w", pady=(4, 0))
-
-
 class LogPage(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master, fg_color="transparent")
@@ -248,6 +230,8 @@ class App(ctk.CTk):
             self.log_page.reload()
         elif key == "scan":
             self.pages["scan"].refresh_lists()
+        elif key == "settings":
+            self.pages["settings"].load_into_widgets()
         elif key == "security":
             self.pages["security"].refresh()
         elif key == "quarantine":

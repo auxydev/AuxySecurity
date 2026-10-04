@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ctypes
+import os
 import subprocess
 import sys
 from ctypes import wintypes
@@ -108,6 +109,65 @@ def acquire_single_instance(name: str) -> bool:
         return False
     _held_mutexes.append(handle)  # surec bitene kadar tut
     return True
+
+
+def instance_suffix() -> str:
+    """Test icin: AUXY_INSTANCE ortam degiskeni, mutex/olay adlarini ayirir (calisan ajana dokunmadan test)."""
+    return os.environ.get("AUXY_INSTANCE", "")
+
+
+def agent_mutex_name() -> str:
+    return "AuxySecurityAgent" + instance_suffix()
+
+
+CONFIG_EVENT_BASE = "Local\\AuxyConfigChanged"
+
+
+def _config_event():
+    k = ctypes.windll.kernel32
+    k.CreateEventW.restype = wintypes.HANDLE
+    k.CreateEventW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR]
+    return k.CreateEventW(None, False, False, CONFIG_EVENT_BASE + instance_suffix())  # otomatik sifirlanan, adli olay
+
+
+def signal_config_changed() -> None:
+    """GUI ayari kaydedince ajani aninda uyandirir (yoklama yok)."""
+    k = ctypes.windll.kernel32
+    h = _config_event()
+    if h:
+        k.SetEvent.argtypes = [wintypes.HANDLE]
+        k.SetEvent(h)
+        k.CloseHandle.argtypes = [wintypes.HANDLE]
+        k.CloseHandle(h)
+
+
+class ConfigWaiter:
+    """Ajan tarafi: olay gelene kadar uyur. wake() ile (cikista) bekleme sonlandirilir."""
+
+    def __init__(self):
+        self._h = _config_event()
+        k = ctypes.windll.kernel32
+        k.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        k.WaitForSingleObject.restype = wintypes.DWORD
+        k.SetEvent.argtypes = [wintypes.HANDLE]
+
+    def wait(self) -> None:
+        ctypes.windll.kernel32.WaitForSingleObject(self._h, 0xFFFFFFFF)
+
+    def wake(self) -> None:
+        ctypes.windll.kernel32.SetEvent(self._h)
+
+
+def is_agent_running() -> bool:
+    k = ctypes.windll.kernel32
+    k.OpenMutexW.restype = wintypes.HANDLE
+    k.OpenMutexW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
+    h = k.OpenMutexW(0x00100000, False, "Local\\" + agent_mutex_name())  # SYNCHRONIZE
+    if h:
+        k.CloseHandle.argtypes = [wintypes.HANDLE]
+        k.CloseHandle(h)
+        return True
+    return False
 
 
 def focus_window(title: str) -> bool:

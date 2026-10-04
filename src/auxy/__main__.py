@@ -292,6 +292,38 @@ def cmd_tpm_info(args) -> int:
     return 0 if res.ok else 1
 
 
+def cmd_scan_file(args) -> int:
+    """Explorer sag-tik menusu: dosyayi/klasoru tarar, sonucu kutuyla gosterir."""
+    from auxy.core import scan
+
+    try:
+        res = scan.ScanManager().run(scan.CUSTOM, args.path)
+        msg = f"{res.summary()}\n\n{args.path}"
+    except AuxyError as exc:
+        msg = str(exc)
+    if args.no_dialog:
+        print(msg)
+    else:
+        import ctypes
+
+        ctypes.windll.user32.MessageBoxW(0, msg, "AuxySecurity", 0x40)  # bilgi simgesi
+    return 0
+
+
+def cmd_context_menu(args) -> int:
+    from auxy.core import contextmenu
+
+    if args.action == "install":
+        contextmenu.install()
+        print("Sağ tık menüsü eklendi (Windows 11: 'Daha fazla seçenek göster' altında).")
+    elif args.action == "remove":
+        contextmenu.remove()
+        print("Sağ tık menüsü kaldırıldı.")
+    else:
+        print("Kurulu: " + ("evet" if contextmenu.is_installed() else "hayır"))
+    return 0
+
+
 def cmd_agent(_args) -> int:
     from auxy.agent.tray import run
 
@@ -431,6 +463,15 @@ def main(argv: list[str] | None = None) -> int:
     p_tp = sub.add_parser("tpm-info", help="TPM durumu (UAC ister)")
     p_tp.add_argument("--result", help=argparse.SUPPRESS)
     p_tp.set_defaults(func=cmd_tpm_info)
+
+    p_sf = sub.add_parser("scan-file", help="Bir dosya/klasörü tara ve sonucu kutuyla göster")
+    p_sf.add_argument("path")
+    p_sf.add_argument("--no-dialog", action="store_true", help=argparse.SUPPRESS)
+    p_sf.set_defaults(func=cmd_scan_file)
+
+    p_cm = sub.add_parser("context-menu", help="Explorer sağ tık menüsü 'Auxy ile tara'")
+    p_cm.add_argument("action", choices=["install", "remove", "status"])
+    p_cm.set_defaults(func=cmd_context_menu)
 
     sub.add_parser("agent", help="Tray ajanini baslat").set_defaults(func=cmd_agent)
 

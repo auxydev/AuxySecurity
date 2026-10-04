@@ -15,6 +15,7 @@ from datetime import datetime
 from pathlib import Path
 
 from auxy.core import paths, threats
+from auxy.core.defender import DefenderError
 from auxy.core.log import get_logger
 from auxy.core.service import AuxyError
 
@@ -101,7 +102,8 @@ class ScanManager:
     def running(self) -> bool:
         return self._proc is not None
 
-    def run(self, scan_type: int, path: str | None = None) -> ScanResult:
+    def run(self, scan_type: int, path: str | None = None, quiet: bool = False) -> ScanResult:
+        """quiet=True: temiz biten taramalar gecmise yazilmaz (otomatik dosya taramalari gecmisi bogmasin)."""
         args = build_scan_args(scan_type, path)
         with self._lock:
             if self._proc is not None:
@@ -131,7 +133,8 @@ class ScanManager:
         found = self._new_threats(started) if status == COMPLETED else []
         result = ScanResult(scan_type, path or "", started.isoformat(timespec="seconds"),
                             round(seconds, 1), status, proc.returncode, found)
-        append_history(result)
+        if not quiet or result.status != COMPLETED or result.threats:
+            append_history(result)
         self._log.info("TARAMA bitti: %s", result.summary())
         return result
 
@@ -140,7 +143,7 @@ class ScanManager:
         try:
             names = [d.name for d in threats.read_detections()
                      if d.time and d.time >= since.replace(microsecond=0)]
-        except AuxyError:
+        except (AuxyError, DefenderError):  # tespit okunamazsa tarama sonucu yine de gecerli
             return []
         return sorted(set(names))
 

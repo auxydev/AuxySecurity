@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from auxy.core.defender import NAMESPACE, DefenderError
+from auxy.core.defender import NAMESPACE, DefenderError, com_apartment
 
 SEVERITY = {0: "Bilinmiyor", 1: "Düşük", 2: "Orta", 4: "Yüksek", 5: "Çok yüksek"}
 _RESOURCE_PREFIX = re.compile(r"^[A-Za-z]+:_")
@@ -62,24 +62,25 @@ def read_detections(limit: int = 200) -> list[Detection]:
     try:
         import win32com.client
 
-        service = win32com.client.GetObject(rf"winmgmts:\\.\{NAMESPACE}")
-        threats = {}
-        for t in _fetch(service, "MSFT_MpThreat"):
-            threats[t.ThreatID] = t
-        out = []
-        for d in _fetch(service, "MSFT_MpThreatDetection"):
-            t = threats.get(d.ThreatID)
-            out.append(
-                Detection(
-                    threat_id=int(d.ThreatID),
-                    name=str(getattr(t, "ThreatName", None) or f"Tehdit {d.ThreatID}"),
-                    severity=SEVERITY.get(getattr(t, "SeverityID", 0), "Bilinmiyor"),
-                    paths=[clean_resource(r) for r in (d.Resources or [])],
-                    time=to_local_naive(d.InitialDetectionTime),
-                    handled=bool(d.ActionSuccess),
-                    active=bool(getattr(t, "IsActive", False)),
+        with com_apartment():
+            service = win32com.client.GetObject(rf"winmgmts:\\.\{NAMESPACE}")
+            threats = {}
+            for t in _fetch(service, "MSFT_MpThreat"):
+                threats[t.ThreatID] = t
+            out = []
+            for d in _fetch(service, "MSFT_MpThreatDetection"):
+                t = threats.get(d.ThreatID)
+                out.append(
+                    Detection(
+                        threat_id=int(d.ThreatID),
+                        name=str(getattr(t, "ThreatName", None) or f"Tehdit {d.ThreatID}"),
+                        severity=SEVERITY.get(getattr(t, "SeverityID", 0), "Bilinmiyor"),
+                        paths=[clean_resource(r) for r in (d.Resources or [])],
+                        time=to_local_naive(d.InitialDetectionTime),
+                        handled=bool(d.ActionSuccess),
+                        active=bool(getattr(t, "IsActive", False)),
+                    )
                 )
-            )
     except Exception as exc:
         raise DefenderError(f"Tehditler okunamadı: {exc}") from exc
     out.sort(key=lambda x: x.time or datetime.min, reverse=True)

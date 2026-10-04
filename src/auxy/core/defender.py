@@ -7,6 +7,7 @@ Namespace: root/Microsoft/Windows/Defender
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -43,6 +44,28 @@ ON_OFF_LABELS = {0: "Kapali", 1: "Acik", 2: "Denetim modu"}
 
 class DefenderError(RuntimeError):
     """Defender WMI sorgusu basarisiz oldu."""
+
+
+@contextmanager
+def com_apartment():
+    """Bu is parcaciginda COM'u baslatir (WMI icin sart). Zaten baslatilmissa zararsizdir.
+
+    pywin32 yalnizca ILK import eden is parcacigi icin COM baslatir; baska is parcaciklarinda
+    `GetObject("winmgmts:...")` MK_E_SYNTAX ("Gecersiz sozdizimi") ile coker ve is parcacigi sessizce olur.
+    """
+    import pythoncom
+
+    initialized = False
+    try:
+        pythoncom.CoInitializeEx(pythoncom.COINIT_MULTITHREADED)
+        initialized = True
+    except pythoncom.com_error:
+        pass  # RPC_E_CHANGED_MODE: bu is parcacigi baska modda zaten baslatilmis, sorun degil
+    try:
+        yield
+    finally:
+        if initialized:
+            pythoncom.CoUninitialize()
 
 
 @dataclass(frozen=True)
@@ -92,9 +115,10 @@ def read_status() -> DefenderStatus:
     try:
         import win32com.client  # gec import: ajan acilisinda yuk olmasin
 
-        wmi_service = win32com.client.GetObject(rf"winmgmts:\\.\{NAMESPACE}")
-        status = _query_one(wmi_service, "MSFT_MpComputerStatus", STATUS_FIELDS)
-        prefs = _query_one(wmi_service, "MSFT_MpPreference", PREF_FIELDS)
+        with com_apartment():
+            wmi_service = win32com.client.GetObject(rf"winmgmts:\\.\{NAMESPACE}")
+            status = _query_one(wmi_service, "MSFT_MpComputerStatus", STATUS_FIELDS)
+            prefs = _query_one(wmi_service, "MSFT_MpPreference", PREF_FIELDS)
     except DefenderError:
         raise
     except Exception as exc:  # com_error vb.
