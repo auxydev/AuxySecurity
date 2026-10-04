@@ -1,4 +1,4 @@
-﻿"""Yonetilebilen Defender ayarlari ve izinli deger listesi.
+"""Yonetilebilen Defender ayarlari ve izinli deger listesi.
 
 PowerShell komutuna yalnizca bu tablodaki sabit parametre adlari ve dogrulanmis
 bool/int degerleri girer; kullanici girdisi komuta gomulmez.
@@ -32,9 +32,8 @@ class Setting:
         raise ValueError(f"Gecersiz ham deger: {raw!r}")
 
 
-# Yazilabilen ve Windows'un dis yazmaya izin vermedigi (M1 bulgusu) ayarlar
-TOGGLE_KEYS = ("pua", "cfa", "netprot")
-READONLY_KEYS = ("realtime", "maps")
+# Hizli anahtar olarak sunulan ayarlar (maps uc seviyeli oldugu icin ayri kontrol)
+TOGGLE_KEYS = ("realtime", "pua", "cfa", "netprot")
 
 SETTINGS: dict[str, Setting] = {
     s.key: s

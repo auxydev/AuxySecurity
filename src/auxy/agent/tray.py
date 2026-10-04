@@ -8,11 +8,10 @@ import threading
 
 from auxy.core import actions, defender, system
 from auxy.core.log import get_logger
-from auxy.core.settings import READONLY_KEYS, SETTINGS, TOGGLE_KEYS
+from auxy.core.settings import SETTINGS, TOGGLE_KEYS
 from auxy.gui import viewmodel as vm
 
 REFRESH_S = 60  # dakikada bir (~100 ms WMI); aradaki sure tamamen uykuda
-WINSEC_URI = "windowsdefender://threatsettings"
 VALUE_TR = {"on": "Açık", "off": "Kapalı", "audit": "Denetim", "basic": "Temel",
             "advanced": "Gelişmiş"}
 
@@ -79,13 +78,15 @@ class Agent:
                 checked=self._checked(key),
                 enabled=self.status is not None,
             )
+        yield item(
+            SETTINGS["maps"].label,
+            self._pystray.Menu(*(
+                item(shown, self._maps_action(value), checked=self._maps_checked(value), radio=True)
+                for shown, value in (("Kapalı", "off"), ("Temel", "basic"), ("Gelişmiş", "advanced"))
+            )),
+            enabled=self.status is not None,
+        )
         yield sep
-        for key in READONLY_KEYS:
-            name = self._value_name(key)
-            text = f"{SETTINGS[key].label}: {VALUE_TR.get(name, name) if name else '?'}"
-            yield item(text, None, enabled=False)
-        yield sep
-        yield item("Windows Security'yi aç", lambda *_: os.startfile(WINSEC_URI))
         yield item("Yenile", lambda *_: self._wake.set())
         yield item("Çıkış", self.quit)
 
@@ -96,6 +97,18 @@ class Agent:
             self._start(self._toggle, key)
 
         return action
+
+    def _maps_action(self, value: str):
+        def action(icon, item):
+            self._start(self._apply, "maps", value)
+
+        return action
+
+    def _maps_checked(self, value: str):
+        def checked(item):
+            return self._value_name("maps") == value
+
+        return checked
 
     def _checked(self, key: str):
         def checked(item):
@@ -109,7 +122,9 @@ class Agent:
         threading.Thread(target=fn, args=args, daemon=True).start()
 
     def _toggle(self, key: str) -> None:
-        value = "off" if self._value_name(key) in ("on", "audit") else "on"
+        self._apply(key, "off" if self._value_name(key) in ("on", "audit") else "on")
+
+    def _apply(self, key: str, value: str) -> None:
         res = actions.apply_setting(key, value)
         label = SETTINGS[key].label
         self.icon.notify(res.message if not res.ok else f"{label}: {res.message}", "AuxySecurity")

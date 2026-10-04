@@ -138,8 +138,10 @@ def test_menu_builds_with_and_without_status():
     assert items["İstenmeyen uygulama koruması"].checked is True
     assert items["Denetimli klasör erişimi"].checked is False
     assert items["Ağ koruması"].checked is True  # denetim modu = acik sayilir
-    assert "Gerçek zamanlı koruma: Açık" in items
-    assert "Bulut koruma (MAPS): Temel" in items
+    assert items["Gerçek zamanlı koruma"].checked is True  # artik uygulama icinden degisir
+    maps = {i.text: i.checked for i in items["Bulut koruma (MAPS)"].submenu.items}
+    assert maps == {"Kapalı": False, "Temel": True, "Gelişmiş": False}
+    assert not any("Windows Security" in t for t in items)  # yonlendirme yok
 
 
 def test_tooltip():

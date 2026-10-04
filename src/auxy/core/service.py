@@ -110,9 +110,8 @@ class DefenderService:
             return SetResult(setting.key, old_name, new_name, changed=False)
         if st.tamper_protected and setting.tamper_guarded:
             raise TamperBlockedError(
-                f"Tamper Protection acik; '{setting.key}' degistirilemez. "
-                "Windows Security > Virus ve tehdit korumasi > Ayarlari yonet bolumunden "
-                "Tamper Protection'i elle kapatip tekrar dene."
+                f"{setting.label} değiştirilemedi: Tamper Protection açık olduğu için Windows "
+                "bu ayara dışarıdan müdahaleye izin vermiyor."
             )
 
         created = backup.remember_original(setting.key, current) if track_backup else False
@@ -132,15 +131,13 @@ class DefenderService:
                             setting.key, old_name, new_name, setting.name_of(after))
             if setting.tamper_guarded:
                 hint = (
-                    "Windows bu ayari, Tamper Protection 'kapali' gorunse bile disaridan "
-                    "degistirmeye izin vermiyor (komut hata vermeden yok sayiliyor). "
-                    "Windows Security'den elle degistir: windowsdefender://threatsettings"
+                    "Windows bu ayara dışarıdan müdahaleyi, Tamper Protection kapalı "
+                    "görünse bile komut hata vermeden yok sayarak engelliyor."
                 )
             else:
-                hint = "Bir grup ilkesi veya yonetim politikasi engelliyor olabilir."
+                hint = "Bir grup ilkesi veya yönetim politikası engelliyor olabilir."
             raise TamperBlockedError(
-                f"'{setting.key}' degisikligi uygulanmadi (deger hala {setting.name_of(after)}). "
-                + hint
+                f"{setting.label} değiştirilemedi (değer hâlâ {setting.name_of(after)}). " + hint
             )
         if track_backup and key_saved_equals(setting.key, target):
             backup.forget(setting.key)  # kullanici orijinale elle dondu; bayat kayit kalmasin

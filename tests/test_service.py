@@ -114,10 +114,11 @@ def test_not_applied_is_detected_and_backup_dropped():
     assert backup.load() == {}
 
 
-def test_silent_ignore_message_points_to_windows_security():
+def test_silent_ignore_message_explains_without_redirecting():
     f = FakeDefender(apply=False)
-    with pytest.raises(TamperBlockedError, match="windowsdefender://threatsettings"):
+    with pytest.raises(TamperBlockedError, match="Tamper Protection kapalı") as e:
         svc(f).set("realtime", "off")
+    assert "windowsdefender" not in str(e.value) and "Windows Security" not in str(e.value)
     with pytest.raises(TamperBlockedError, match="grup ilkesi"):
         svc(f).set("pua", "off")
 

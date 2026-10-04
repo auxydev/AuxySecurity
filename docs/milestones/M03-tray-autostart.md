@@ -18,7 +18,7 @@ işlerde **uygulamanın kendisinin UAC istemesi** (kullanıcıyı Windows Securi
 .\.venv\Scripts\python -m auxy autostart status
 .\.venv\Scripts\python -m auxy autostart remove --elevate    # geri al
 ```
-Tray menüsü: durum başlığı · **Paneli aç** (sol tık da açar) · hızlı anahtarlar (İstenmeyen uygulama koruması, Denetimli klasör erişimi, Ağ koruması) · Gerçek zamanlı/Bulut durumu (salt-okunur) · Windows Security'yi aç · Yenile · Çıkış.
+Tray menüsü: durum başlığı · **Paneli aç** (sol tık da açar) · hızlı anahtarlar (Gerçek zamanlı koruma, İstenmeyen uygulama koruması, Denetimli klasör erişimi, Ağ koruması) · Bulut koruma alt menüsü (Kapalı/Temel/Gelişmiş) · Yenile · Çıkış.
 
 Simge renkleri (yeşil: korunuyor, sarı: dikkat, kırmızı: korunmuyor, gri: okunamadı):
 
@@ -64,7 +64,8 @@ Simge renkleri (yeşil: korunuyor, sarı: dikkat, kırmızı: korunmuyor, gri: o
 
 ## 8. Bilinen sorunlar / Riskler / Plandan sapmalar
 - **"Koruma 10/30/60 dk duraklat" plandan çıkarıldı.** Gerçek zamanlı korumayı kapatma M1'de Windows tarafından engellendiği için duraklatma yapılamaz (ve ilke yolu denenmeyecek). Doğrulanmış çözüm bulunursa geri eklenir.
-- **`realtime` ve `maps` hâlâ salt-okunur.** UAC vermek bunu çözmüyor, çünkü engel yetki değil Windows'un kendi korumasında (M1 testi yönetici yetkisiyle yapılmıştı).
+- **Düzeltme (kullanıcı geri bildirimi):** `realtime` ve `maps` artık GUI ve tray'de **uygulamanın kendi kontrolleri** (anahtar / Kapalı-Temel-Gelişmiş menüsü); **Windows Security'ye yönlendiren düğme, menü öğesi ve mesaj tamamen kaldırıldı.** Windows bu iki ayarı yine de yok sayıyor (aşağıda). Bu durumda uygulama içinde "değiştirilemedi" mesajı çıkar ve kontrol gerçek değere döner.
+- **`realtime` ve `maps` bu makinede hâlâ uygulanmıyor.** UAC akışı doğru çalışıyor (UAC → uygulama → geri okuma), ama Defender `Set-MpPreference` komutunu hata vermeden yok sayıyor. Gerçek makinede yeniden doğrulandı (yönetici yetkisiyle, uygulama yolundan): `realtime off` ve `maps advanced` → değer değişmedi, mesaj uygulamada gösterildi, ikisi de başlangıç değerinde kaldı. Kullanıcı niyeti (uygulamadan değiştirme) karşılanamıyor; engel Defender'ın kendi koruması. Denenmeyen/engellenen tek teknik yol kayıt defteri ilkesi (M1 notu).
 - **RAM hedefi sınırda:** Çalışma kümesi ~41 MB. `win32com` ve PIL yükü büyük kısım. M8'de azaltma: gereksiz import'lar, simgeyi önceden çizip önbelleğe alma, gerekirse WMI'ı hafif COM çağrısıyla değiştirmek.
 - **Güvenlik notu (M8/M9):** UAC ile yükseltilen süreç, kullanıcı tarafından yazılabilir `.venv` ve `src` dizinlerinden Python kodu çalıştırıyor. Yani bu klasöre yazabilen bir program UAC onayını kötüye kullanabilir. Kurulu sürüm `Program Files` altında ve imzalı olmalı; bu risk geliştirme kurulumuna özgü.
 - **Microsoft Store Python:** `%LOCALAPPDATA%` sanallaştırması (M2 notu) devam ediyor; yardımcı ve ana süreç aynı sanal alanı gördüğü için akış çalıştı.

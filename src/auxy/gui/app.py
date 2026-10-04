@@ -1,14 +1,11 @@
-﻿"""AuxySecurity ana penceresi (customtkinter). Mantik core/ ve viewmodel.py'dedir."""
+"""AuxySecurity ana penceresi (customtkinter). Mantik core/ ve viewmodel.py'dedir."""
 
 from __future__ import annotations
-
-import os
 
 import customtkinter as ctk
 
 from auxy import __version__
 from auxy.core import actions, defender, paths, system
-from auxy.core.settings import READONLY_KEYS as READONLY
 from auxy.core.settings import SETTINGS
 from auxy.core.settings import TOGGLE_KEYS as TOGGLES
 from auxy.gui import viewmodel as vm
@@ -16,10 +13,11 @@ from auxy.gui.worker import Worker
 
 COLORS = {vm.OK: "#2e9e5b", vm.WARN: "#d9932b", vm.CRIT: "#d64545"}
 AUTO_REFRESH_MS = 30_000
-WINSEC_URI = "windowsdefender://threatsettings"
 
 VALUE_TR = {"on": "Açık", "off": "Kapalı", "audit": "Denetim", "basic": "Temel",
             "advanced": "Gelişmiş"}
+
+MAPS_TR = {"Kapalı": "off", "Temel": "basic", "Gelişmiş": "advanced"}
 
 NAV = (
     ("dashboard", "Pano"),
@@ -28,13 +26,6 @@ NAV = (
     ("settings", "Ayarlar"),
     ("log", "Günlük"),
 )
-
-
-def _open_windows_security() -> None:
-    try:
-        os.startfile(WINSEC_URI)  # noqa: S606
-    except OSError:
-        pass
 
 
 class DashboardPage(ctk.CTkFrame):
@@ -74,8 +65,6 @@ class DashboardPage(ctk.CTkFrame):
         info.columnconfigure(1, weight=1)
         self.info_values: dict[str, ctk.CTkLabel] = {}
         rows = (
-            ("realtime", "Gerçek zamanlı koruma"),
-            ("maps", "Bulut korumalı koruma"),
             ("tamper", "Tamper Protection"),
             ("signature", "Virüs imzaları"),
             ("product", "Defender sürümü"),
@@ -86,12 +75,6 @@ class DashboardPage(ctk.CTkFrame):
             val = ctk.CTkLabel(info, text="—", anchor="e")
             val.grid(row=i, column=1, sticky="e", padx=(8, 8), pady=5)
             self.info_values[key] = val
-            if key in READONLY:
-                ctk.CTkButton(
-                    info, text="Windows Security'de aç", width=170, height=26,
-                    fg_color="transparent", border_width=1,
-                    text_color=("gray20", "gray85"), command=_open_windows_security,
-                ).grid(row=i, column=2, padx=(0, 14), pady=5)
 
         # Hizli anahtarlar
         ctk.CTkLabel(self, text="Hızlı anahtarlar", font=ctk.CTkFont(size=15, weight="bold"),
@@ -113,6 +96,14 @@ class DashboardPage(ctk.CTkFrame):
             self.switches[key] = switch
             self.switch_notes[key] = note
 
+        # Bulut koruma: uc seviyeli (Kapali / Temel / Gelismis)
+        row = len(TOGGLES)
+        ctk.CTkLabel(sw, text=SETTINGS["maps"].label, anchor="w").grid(
+            row=row, column=0, sticky="w", padx=18, pady=8)
+        self.maps_menu = ctk.CTkOptionMenu(
+            sw, values=list(MAPS_TR), width=130, command=app.set_maps)
+        self.maps_menu.grid(row=row, column=2, padx=(0, 18), pady=6)
+
         self.message = ctk.CTkLabel(self, text="", anchor="w", wraplength=640, justify="left")
         self.message.grid(row=5, column=0, sticky="w", pady=(12, 0))
 
@@ -123,9 +114,8 @@ class DashboardPage(ctk.CTkFrame):
         self.banner_reasons.configure(text="\n".join(f"• {r}" for r in health.reasons))
 
         iv = self.info_values
-        iv["realtime"].configure(text="Açık" if st.realtime_on else "Kapalı")
         maps = SETTINGS["maps"].name_of(st.prefs["MAPSReporting"])
-        iv["maps"].configure(text=VALUE_TR.get(maps, maps))
+        self.maps_menu.set(VALUE_TR.get(maps, maps))
         iv["tamper"].configure(text="Açık" if st.tamper_protected else "Kapalı")
         age = vm.signature_age_days(st)
         sig = st.status.get("AntivirusSignatureVersion") or "?"
@@ -270,10 +260,15 @@ class App(ctk.CTk):
 
     # ---- eylemler ----
     def toggle(self, key: str, switch: ctk.CTkSwitch) -> None:
-        value = "on" if switch.get() else "off"
-        label = SETTINGS[key].label
-        self.dashboard.show_message(f"{label}: {value} uygulanıyor…")
         switch.configure(state="disabled")
+        self._apply(key, "on" if switch.get() else "off")
+
+    def set_maps(self, shown: str) -> None:
+        self._apply("maps", MAPS_TR[shown])
+
+    def _apply(self, key: str, value: str) -> None:
+        label = SETTINGS[key].label
+        self.dashboard.show_message(f"{label}: {VALUE_TR.get(value, value)} uygulanıyor…")
         self.worker.submit(lambda: actions.apply_setting(key, value),
                            lambda res, exc: self._on_set(label, res, exc))
 
