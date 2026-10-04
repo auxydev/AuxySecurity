@@ -352,6 +352,24 @@ def cmd_context_menu(args) -> int:
     return 0
 
 
+def cmd_defender_quarantine(args) -> int:
+    if not _helper_guard(args):
+        return 3
+    if args.op == "offline-scan" and not args.yes and not args.result:
+        print("HATA: çevrimdışı tarama bilgisayarı YENİDEN BAŞLATIR; onaylamak için --yes ekle.", file=sys.stderr)
+        return 2
+    res = actions.defender_quarantine_op(args.op, args.path or "", args.to or "")
+    _report(args, res.ok, res.message, res.changed, res.data)
+    if not res.ok:
+        print(f"HATA: {res.message}", file=sys.stderr)
+        return 1
+    if args.op == "list":
+        for it in res.data or []:
+            print(f"  [{it['threat']}] {it['path']}  ({it['quarantined_at']})")
+    print(res.message)
+    return 0
+
+
 def cmd_agent(_args) -> int:
     from auxy.agent.tray import run
 
@@ -499,6 +517,14 @@ def main(argv: list[str] | None = None) -> int:
     p_cm = sub.add_parser("context-menu", help="Explorer sağ tık menüsü 'Auxy ile tara'")
     p_cm.add_argument("action", choices=["install", "remove", "status"])
     p_cm.set_defaults(func=cmd_context_menu)
+
+    p_dq = sub.add_parser("defender-quarantine", help="Defender karantinası / etkin tehdit temizleme / çevrimdışı tarama (UAC)")
+    p_dq.add_argument("op", choices=["list", "restore", "clean", "offline-scan"])
+    p_dq.add_argument("path", nargs="?", help="restore: geri yüklenecek dosyanın yolu")
+    p_dq.add_argument("--to", help="restore: farklı hedef klasör")
+    p_dq.add_argument("--yes", action="store_true", help="offline-scan: yeniden başlatmayı onayla")
+    p_dq.add_argument("--result", help=argparse.SUPPRESS)
+    p_dq.set_defaults(func=cmd_defender_quarantine)
 
     sub.add_parser("agent", help="Tray ajanini baslat").set_defaults(func=cmd_agent)
 

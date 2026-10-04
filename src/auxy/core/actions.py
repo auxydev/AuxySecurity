@@ -122,6 +122,30 @@ def autostart_op(op: str) -> ActionResult:
     return run_elevated(["autostart", op])
 
 
+def defender_quarantine_op(op: str, path: str = "", to_dir: str = "") -> ActionResult:
+    """Defender karantinasi / tehdit temizleme / cevrimdisi tarama. Hepsi yonetici gerektirir (degilsek UAC).
+
+    op: list | restore | clean | offline-scan.  offline-scan bilgisayari YENIDEN BASLATIR: cagiran onay almalidir.
+    """
+    from auxy.core import defender_quarantine as dq
+
+    if op not in ("list", "restore", "clean", "offline-scan"):
+        return ActionResult(False, f"Geçersiz işlem: {op!r}")
+    try:
+        if op == "restore":
+            dq.validate_restore_path(path)  # gecersiz girdi UAC'ye hic gitmesin
+        if system.is_admin():
+            return dq.run_op(op, path, to_dir)
+    except AuxyError as exc:
+        return ActionResult(False, str(exc))
+    args = ["defender-quarantine", op]
+    if op == "restore":
+        args.append(path)
+        if to_dir:
+            args += ["--to", to_dir]
+    return run_elevated(args, timeout_s=300 if op == "offline-scan" else 120)
+
+
 def exclusion_op(op: str, kind: str, value: str = "") -> ActionResult:
     """Defender dislamalari (list/add/remove). Hepsi yonetici gerektirir (okuma dahil)."""
     from auxy.core import exclusions

@@ -7,10 +7,16 @@ from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
+from auxy.core import actions
 from auxy.core.vault import MIN_PASSWORD_LEN, Vault, VaultItem, import_key_file
 
 MUTED = ("gray40", "gray60")
 _vault: Vault | None = None
+MODE_VAULT, MODE_DEFENDER = "AuxySecurity kasası", "Defender karantinası"
+INFO_VAULT = ("Kasadaki dosyalar AES-256 ile şifrelenir ve çalıştırılamaz. "
+              "Orijinal dosya, kasadaki kopya doğrulandıktan sonra silinir.")
+INFO_DEFENDER = ("Microsoft Defender'ın kendi karantinası. Okumak ve geri yüklemek yönetici izni (UAC) ister. "
+                 "Geri yüklenen zararlı dosyayı Defender yeniden karantinaya alabilir.")
 
 
 def ask_password(parent, title: str, confirm: bool = False) -> str | None:
@@ -89,11 +95,15 @@ class VaultPage(ctk.CTkFrame):
         head = ctk.CTkFrame(self, fg_color="transparent")
         head.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         ctk.CTkLabel(head, text="Karantina", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
-        ctk.CTkButton(head, text="Yenile", width=70, command=self.refresh).pack(side="right")
-        ctk.CTkButton(head, text="Klasör ekle…", width=100, command=self.add_folder).pack(
-            side="right", padx=(0, 8))
-        ctk.CTkButton(head, text="Dosya ekle…", width=100, command=self.add_file).pack(
-            side="right", padx=(0, 8))
+        self.mode_btn = ctk.CTkSegmentedButton(head, values=[MODE_VAULT, MODE_DEFENDER], command=self._set_mode)
+        self.mode_btn.set(MODE_VAULT)
+        self.mode_btn.pack(side="left", padx=16)
+        self.refresh_btn = ctk.CTkButton(head, text="Yenile", width=70, command=self.refresh)
+        self.refresh_btn.pack(side="right")
+        self.folder_btn = ctk.CTkButton(head, text="Klasör ekle…", width=100, command=self.add_folder)
+        self.folder_btn.pack(side="right", padx=(0, 8))
+        self.file_btn = ctk.CTkButton(head, text="Dosya ekle…", width=100, command=self.add_file)
+        self.file_btn.pack(side="right", padx=(0, 8))
         keys = ctk.CTkFrame(self, fg_color="transparent")
         keys.grid(row=4, column=0, sticky="w", pady=(8, 0))
         ctk.CTkButton(keys, text="Anahtarı yedekle…", width=140, height=26, fg_color="transparent",
@@ -104,19 +114,42 @@ class VaultPage(ctk.CTkFrame):
         ctk.CTkLabel(keys, text="Windows profili değişirse yedek olmadan kasa açılamaz.",
                      text_color=MUTED).pack(side="left")
 
-        ctk.CTkLabel(
-            self, anchor="w", justify="left", wraplength=640, text_color=MUTED,
-            text="Kasadaki dosyalar AES-256 ile şifrelenir ve çalıştırılamaz. "
-                 "Orijinal dosya, kasadaki kopya doğrulandıktan sonra silinir.",
-        ).grid(row=1, column=0, sticky="w")
+        self.info_lbl = ctk.CTkLabel(
+            self, anchor="w", justify="left", wraplength=640, text_color=MUTED, text=INFO_VAULT)
+        self.info_lbl.grid(row=1, column=0, sticky="w")
         self.status = ctk.CTkLabel(self, text="", anchor="w", justify="left", wraplength=640)
         self.status.grid(row=2, column=0, sticky="w", pady=(6, 6))
         self.list = ctk.CTkScrollableFrame(self, corner_radius=12)
         self.list.grid(row=3, column=0, sticky="nsew")
         self.list.columnconfigure(0, weight=1)
+        self.keys_frame = keys
+        self.defender_view = DefenderView(self, self)
+        self.defender_view.grid(row=3, column=0, sticky="nsew")
+        self.defender_view.grid_remove()
+
+    # ---- kasa / Defender karantinasi gecisi ----
+    def _set_mode(self, mode: str) -> None:
+        defender = mode == MODE_DEFENDER
+        self.say("")  # onceki gorunumun durum mesaji kalmasin
+        self.info_lbl.configure(text=INFO_DEFENDER if defender else INFO_VAULT)
+        for w in (self.file_btn, self.folder_btn):
+            w.configure(state="disabled" if defender else "normal")
+        if defender:
+            self.list.grid_remove()
+            self.keys_frame.grid_remove()
+            self.defender_view.grid()
+            self.defender_view.load_if_empty()
+        else:
+            self.defender_view.grid_remove()
+            self.list.grid()
+            self.keys_frame.grid()
+            self.refresh()
 
     # ---- liste ----
     def refresh(self) -> None:
+        if self.mode_btn.get() == MODE_DEFENDER:
+            self.defender_view.load()
+            return
         self.app.worker.submit(lambda: get_vault().list(), self._show)
 
     def _show(self, items, exc) -> None:
@@ -263,3 +296,103 @@ class VaultPage(ctk.CTkFrame):
         self.app.worker.submit(lambda: get_vault().delete(item.id),
                                lambda _r, exc: (self.say(str(exc) if exc else f"Silindi: {item.name}",
                                                          error=exc is not None), self.refresh()))
+
+
+class DefenderView(ctk.CTkFrame):
+    """Defender'in kendi karantinasi: listele, geri yukle, etkin tehditleri temizle, cevrimdisi tarama."""
+
+    def __init__(self, master, page: VaultPage):
+        super().__init__(master, fg_color="transparent")
+        self.page = page
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+        self.loaded = False
+        bar = ctk.CTkFrame(self, fg_color="transparent")
+        bar.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        ctk.CTkButton(bar, text="Listele", width=80, command=self.load).pack(side="left")
+        ctk.CTkButton(bar, text="Etkin tehditleri temizle", width=170, command=self.clean).pack(side="left", padx=6)
+        ctk.CTkButton(bar, text="Çevrimdışı tarama…", width=150, fg_color="#d64545", hover_color="#b53a3a",
+                      command=self.offline_scan).pack(side="right")
+        self.list = ctk.CTkScrollableFrame(self, corner_radius=12)
+        self.list.grid(row=1, column=0, sticky="nsew")
+        self.list.columnconfigure(0, weight=1)
+        ctk.CTkLabel(self.list, text="Listelemek için 'Listele'ye bas (yönetici izni ister).",
+                     text_color=MUTED).grid(row=0, column=0, padx=14, pady=14, sticky="w")
+
+    def load_if_empty(self) -> None:
+        if not self.loaded:
+            self.load()
+
+    def load(self) -> None:
+        self.page.say("Defender karantinası okunuyor… (yönetici izni istenebilir)")
+        self.page.app.worker.submit(lambda: actions.defender_quarantine_op("list"), self._show)
+
+    def _show(self, res, exc) -> None:
+        for w in self.list.winfo_children():
+            w.destroy()
+        if exc is not None or not res.ok:
+            self.page.say(str(exc) if exc else res.message, error=True)
+            ctk.CTkLabel(self.list, text="Okunamadı.", text_color=MUTED).grid(row=0, column=0, padx=14, pady=14, sticky="w")
+            return
+        self.loaded = True
+        items = res.data or []
+        self.page.say(f"Defender karantinasında {len(items)} öğe var.")
+        if not items:
+            ctk.CTkLabel(self.list, text="Defender karantinası boş.", text_color=MUTED).grid(
+                row=0, column=0, padx=14, pady=14, sticky="w")
+            return
+        for i, it in enumerate(items):
+            row = ctk.CTkFrame(self.list, corner_radius=8)
+            row.grid(row=i, column=0, sticky="ew", padx=4, pady=4)
+            row.columnconfigure(0, weight=1)
+            ctk.CTkLabel(row, text=it["threat"], anchor="w", font=ctk.CTkFont(weight="bold")).grid(
+                row=0, column=0, sticky="w", padx=12, pady=(8, 0))
+            ctk.CTkLabel(row, text=it["path"], anchor="w", text_color=MUTED, wraplength=430, justify="left").grid(
+                row=1, column=0, sticky="w", padx=12)
+            ctk.CTkLabel(row, text=it["quarantined_at"], anchor="w", text_color=MUTED).grid(
+                row=2, column=0, sticky="w", padx=12, pady=(0, 8))
+            if it["scheme"] == "file":
+                ctk.CTkButton(row, text="Geri yükle…", width=100,
+                              command=lambda x=it: self.restore(x)).grid(row=0, column=1, rowspan=3, padx=(0, 12))
+
+    def restore(self, it: dict) -> None:
+        answer = messagebox.askyesnocancel(
+            "Defender karantinasından geri yükle",
+            f"'{it['threat']}' olarak karantinaya alınmış dosya geri yüklenecek:\n{it['path']}\n\n"
+            "Bu dosya zararlı olabilir. Geri yüklemek bilgisayarını riske atar.\n\n"
+            "EVET: orijinal konuma geri yükle\nHAYIR: başka bir klasöre geri yükle\nİPTAL: vazgeç",
+            icon="warning")
+        if answer is None:
+            return
+        to_dir = ""
+        if answer is False:
+            to_dir = filedialog.askdirectory(title="Geri yüklenecek klasör") or ""
+            if not to_dir:
+                return
+        self.page.say("Geri yükleniyor… (yönetici izni istenebilir)")
+        self.page.app.worker.submit(lambda: actions.defender_quarantine_op("restore", it["path"], to_dir),
+                                    self._after_action)
+
+    def clean(self) -> None:
+        if not messagebox.askyesno("Etkin tehditleri temizle",
+                                   "Defender, bilgisayardaki ETKİN tehditleri temizleyecek (Remove-MpThreat).\nDevam edilsin mi?"):
+            return
+        self.page.say("Temizleniyor… (yönetici izni istenebilir)")
+        self.page.app.worker.submit(lambda: actions.defender_quarantine_op("clean"), self._after_action)
+
+    def offline_scan(self) -> None:
+        if not messagebox.askyesno(
+            "Çevrimdışı tarama",
+            "Microsoft Defender Çevrimdışı taraması bilgisayarı YENİDEN BAŞLATIR ve açılışta tarama yapar "
+            "(birkaç on dakika sürebilir).\n\nAçık işlerini ve dosyalarını ŞİMDİ kaydet.\n\nDevam edilsin mi?",
+            icon="warning"):
+            return
+        if not messagebox.askyesno("Son uyarı", "Bilgisayar birazdan yeniden başlatılacak. Kaydedilmemiş veriler kaybolabilir.\n"
+                                                "Gerçekten başlatılsın mı?", icon="warning"):
+            return
+        self.page.say("Çevrimdışı tarama başlatılıyor… (yönetici izni istenebilir)")
+        self.page.app.worker.submit(lambda: actions.defender_quarantine_op("offline-scan"), self._after_action)
+
+    def _after_action(self, res, exc) -> None:
+        self.page.say(str(exc) if exc else res.message, error=exc is not None or not res.ok)
+        self.load()

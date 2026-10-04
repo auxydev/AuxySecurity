@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
@@ -74,6 +74,9 @@ class ScanPage(ctk.CTkFrame):
             side="left")
         ctk.CTkButton(head, text="Yenile", width=70, height=24, command=self.refresh_lists).pack(
             side="right")
+        self.clean_btn = ctk.CTkButton(head, text="Etkin tehditleri temizle (Defender)", width=230, height=24,
+                                       fg_color="#d64545", hover_color="#b53a3a", command=self.clean_active)
+        # yalnizca etkin tehdit varsa gorunur (_show_threats)
         self.threat_box = ctk.CTkScrollableFrame(self, height=140, corner_radius=8)
         self.threat_box.grid(row=5, column=0, sticky="nsew")
         self.threat_box.columnconfigure(0, weight=1)
@@ -94,6 +97,11 @@ class ScanPage(ctk.CTkFrame):
     def _show_threats(self, items, exc) -> None:
         for w in self.threat_box.winfo_children():
             w.destroy()
+        has_active = exc is None and any(d.active for d in items)
+        if has_active and not self.clean_btn.winfo_manager():
+            self.clean_btn.pack(side="right", padx=(0, 8))
+        elif not has_active and self.clean_btn.winfo_manager():
+            self.clean_btn.pack_forget()
         if exc is not None or not items:
             text = f"Tehditler okunamadı: {exc}" if exc is not None else "Kayıtlı tehdit yok."
             ctk.CTkLabel(self.threat_box, text=text, text_color=MUTED, anchor="w").grid(
@@ -200,6 +208,22 @@ class ScanPage(ctk.CTkFrame):
             )
         self.refresh_lists()
         self.app.refresh()
+
+    def clean_active(self) -> None:
+        if not messagebox.askyesno("Etkin tehditleri temizle",
+                                   "Defender, bilgisayardaki ETKİN tehditleri temizleyecek (Remove-MpThreat).\n"
+                                   "Devam edilsin mi?"):
+            return
+        self.status.configure(text="Etkin tehditler temizleniyor… (yönetici izni istenebilir)",
+                              text_color=("gray20", "gray85"))
+
+        def done(res, exc):
+            ok = exc is None and res.ok
+            self.status.configure(text=str(exc) if exc else res.message, text_color="#2e9e5b" if ok else "#d64545")
+            self.refresh_lists()
+            self.app.refresh()
+
+        self.app.worker.submit(lambda: actions.defender_quarantine_op("clean"), done)
 
     def cancel(self) -> None:
         self.cancel_btn.configure(state="disabled")
