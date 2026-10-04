@@ -38,6 +38,26 @@ def test_status_error(monkeypatch, capsys):
     assert "HATA" in capsys.readouterr().err
 
 
+def test_set_invalid_value_rejected_before_admin_check(monkeypatch, capsys):
+    monkeypatch.setattr(cli.system, "is_admin", lambda: False)
+    assert cli.main(["set", "pua", "x; calc"]) == 2
+    assert "gecersiz deger" in capsys.readouterr().err
+
+
+def test_set_requires_admin_without_elevate(monkeypatch, capsys):
+    monkeypatch.setattr(cli.system, "is_admin", lambda: False)
+    assert cli.main(["set", "pua", "off"]) == 3
+    assert "Yonetici yetkisi gerekli" in capsys.readouterr().err
+
+
+def test_set_elevate_relaunches_with_pause(monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli.system, "is_admin", lambda: False)
+    monkeypatch.setattr(cli.system, "relaunch_as_admin", lambda a: calls.append(a) or True)
+    assert cli.main(["set", "pua", "off", "--elevate"]) == 0
+    assert calls == [["set", "pua", "off", "--pause"]]
+
+
 def test_properties():
     assert _fake(realtime=False).realtime_on is False
     assert _fake(tamper=True).tamper_protected is True
