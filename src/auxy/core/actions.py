@@ -122,6 +122,28 @@ def autostart_op(op: str) -> ActionResult:
     return run_elevated(["autostart", op])
 
 
+def firewall_op(op: str, value: str = "") -> ActionResult:
+    """Guvenlik duvari kurallari. list / list-blocks yonetici GEREKTIRMEZ; digerleri (UAC)."""
+    from auxy.core import firewall as fw
+
+    if op not in fw.OPS:
+        return ActionResult(False, f"Geçersiz işlem: {op!r}")
+    try:
+        if op in ("list", "list-blocks"):
+            return fw.run_op(op)
+        if op == "block":
+            fw.validate_program(value)  # gecersiz girdi UAC'ye hic gitmesin
+        elif op == "unblock":
+            fw.unblock_name_or_path_check(value)
+        else:
+            fw._clean_name(value)
+        if system.is_admin():
+            return fw.run_op(op, value)
+    except AuxyError as exc:
+        return ActionResult(False, str(exc))
+    return run_elevated(["firewall-rule", op, value])
+
+
 def defender_quarantine_op(op: str, path: str = "", to_dir: str = "") -> ActionResult:
     """Defender karantinasi / tehdit temizleme / cevrimdisi tarama. Hepsi yonetici gerektirir (degilsek UAC).
 

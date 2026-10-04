@@ -36,6 +36,17 @@ def remember_original(key: str, raw) -> bool:
     return True
 
 
+def get_value(key: str, default=None):
+    return load().get(key, default)
+
+
+def set_value(key: str, value) -> None:
+    """Orijinal-koruma kurali OLMADAN dogrudan yaz (liste gibi durum verileri icin)."""
+    data = load()
+    data[key] = value
+    _write(data)
+
+
 def forget(key: str) -> None:
     data = load()
     if key in data:

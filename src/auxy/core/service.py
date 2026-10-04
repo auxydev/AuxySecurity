@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -36,17 +35,9 @@ class SetResult:
 
 
 def run_powershell(command: str) -> tuple[int, str, str]:
-    proc = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
-        capture_output=True,
-        timeout=60,
-        creationflags=subprocess.CREATE_NO_WINDOW,
-    )
-    return (
-        proc.returncode,
-        proc.stdout.decode("utf-8", "replace"),
-        proc.stderr.decode("utf-8", "replace"),
-    )
+    from auxy.core import pshell
+
+    return pshell.run(command, timeout=60)
 
 
 def key_saved_equals(key: str, raw) -> bool:
@@ -90,7 +81,8 @@ class DefenderService:
 
     def revert(self, key: str | None = None) -> list[SetResult]:
         saved = backup.load()
-        keys = [key] if key else list(saved)
+        # yedek dosyasi baska ozelliklerin anahtarlarini da icerir (ws:..., fwrules): yalnizca Defender ayarlari
+        keys = [key] if key else [k for k in saved if k in SETTINGS]
         results = []
         for k in keys:
             setting = _lookup(k)

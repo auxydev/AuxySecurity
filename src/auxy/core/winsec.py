@@ -8,12 +8,11 @@ Exploit protection bilerek salt-okunurdur: Windows tek tek "varsayilana don" sun
 from __future__ import annotations
 
 import json
-import subprocess
 import winreg
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from auxy.core import backup, system
+from auxy.core import backup, pshell, system
 from auxy.core.defender import com_apartment
 from auxy.core.log import get_logger
 from auxy.core.service import AuxyError, NotAdminError, UnknownSettingError
@@ -42,6 +41,7 @@ class WinSetting:
     # kayit defteri ayari (guvenlik duvari icin None)
     reg: tuple | None = None  # (hive, yol, ad, tur: "str"|"dword")
     firewall: str | None = None  # "domain" | "private" | "public"
+    fw_inbound: str | None = None  # gelen baglanti eylemi: profil adi
 
     def name_of(self, raw) -> str:
         eff = self.default_raw if raw is None else raw
@@ -50,6 +50,9 @@ class WinSetting:
                 return name
         return f"?({raw})"
 
+
+# Windows: NotConfigured = varsayilan davranis (gelen baglantilar engellenir). Allow zayiflatir.
+INBOUND_CHOICES = {"default": "NotConfigured", "block": "Block", "allow": "Allow"}
 
 WINSEC_SETTINGS: dict[str, WinSetting] = {
     s.key: s
@@ -60,6 +63,12 @@ WINSEC_SETTINGS: dict[str, WinSetting] = {
                    {"on": True, "off": False}, True, firewall="private"),
         WinSetting("fw_public", "Güvenlik duvarı: Genel ağ", "firewall",
                    {"on": True, "off": False}, True, firewall="public"),
+        WinSetting("fw_in_domain", "Gelen bağlantılar: Etki alanı ağı", "firewall",
+                   INBOUND_CHOICES, "NotConfigured", fw_inbound="domain"),
+        WinSetting("fw_in_private", "Gelen bağlantılar: Özel ağ", "firewall",
+                   INBOUND_CHOICES, "NotConfigured", fw_inbound="private"),
+        WinSetting("fw_in_public", "Gelen bağlantılar: Genel ağ", "firewall",
+                   INBOUND_CHOICES, "NotConfigured", fw_inbound="public"),
         WinSetting("smartscreen_apps", "SmartScreen: uygulamalar ve dosyalar", "smartscreen",
                    {"off": "Off", "warn": "Warn", "block": "RequireAdmin"}, "Warn",
                    reg=(HKLM, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer",
@@ -103,16 +112,36 @@ class WinEnv:
         raw = self.get_reg(HKLM, f"{FW_BASE}\\{FW_PROFILES[profile][1]}", "EnableFirewall")
         return bool(raw) if raw is not None else True
 
+    def firewall_inbound_all(self) -> dict[str, str]:
+        """Uc profilin gelen eylemi tek PowerShell cagrisiyla."""
+        cmd = ("Get-NetFirewallProfile | Select-Object Name,@{n='in';e={[string]$_.DefaultInboundAction}} "
+               "| ConvertTo-Json -Compress")
+        rc, out, _err = pshell.run(cmd)
+        if rc != 0:
+            raise WinSecError("Gelen bağlantı eylemi okunamadı.")
+        data = json.loads(out)
+        data = [data] if isinstance(data, dict) else data
+        names = {FW_PROFILES[k][0]: k for k in FW_PROFILES}
+        return {names[d["Name"]]: str(d["in"]) for d in data if d.get("Name") in names}
+
+    def firewall_inbound(self, profile: str) -> str:
+        return self.firewall_inbound_all().get(profile, "NotConfigured")
+
+    def set_firewall_inbound(self, profile: str, value: str) -> None:
+        if value not in INBOUND_CHOICES.values():
+            raise WinSecError("Geçersiz gelen bağlantı eylemi.")
+        name = FW_PROFILES[profile][0]
+        cmd = f"Set-NetFirewallProfile -Name {name} -DefaultInboundAction {value}"  # ad ve deger izinli listeden
+        rc, _out, err = pshell.run(cmd)
+        if rc != 0:
+            raise WinSecError(f"Set-NetFirewallProfile başarısız: {err.strip() or rc}")
+
     def set_firewall(self, profile: str, enabled: bool) -> None:
         name = FW_PROFILES[profile][0]  # izinli listeden: Domain/Private/Public
         cmd = f"Set-NetFirewallProfile -Name {name} -Enabled {'True' if enabled else 'False'}"
-        proc = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
-            capture_output=True, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW,
-        )
-        if proc.returncode != 0:
-            raise WinSecError(f"Set-NetFirewallProfile başarısız: "
-                              f"{proc.stderr.decode('utf-8', 'replace').strip() or proc.returncode}")
+        rc, _out, err = pshell.run(cmd)
+        if rc != 0:
+            raise WinSecError(f"Set-NetFirewallProfile başarısız: {err.strip() or rc}")
 
 
 @dataclass(frozen=True)
@@ -130,14 +159,27 @@ class WinSecService:
         self._log = get_logger()
 
     # ---- okuma ----
+    _inbound_cache: dict[str, str] | None = None
+
     def read_raw(self, s: WinSetting):
+        if s.fw_inbound:
+            if self._inbound_cache is not None:
+                return self._inbound_cache.get(s.fw_inbound, "NotConfigured")
+            return self._env.firewall_inbound(s.fw_inbound)
         if s.firewall:
             return self._env.firewall_enabled(s.firewall)
         hive, path, name, _kind = s.reg
         return self._env.get_reg(hive, path, name)
 
     def get_all(self) -> dict[str, str]:
-        return {k: s.name_of(self.read_raw(s)) for k, s in WINSEC_SETTINGS.items()}
+        try:
+            self._inbound_cache = self._env.firewall_inbound_all()  # 3 profil icin TEK PowerShell cagrisi
+        except Exception:
+            self._inbound_cache = None
+        try:
+            return {k: s.name_of(self.read_raw(s)) for k, s in WINSEC_SETTINGS.items()}
+        finally:
+            self._inbound_cache = None
 
     def get_many(self, keys: tuple[str, ...] | list[str]) -> dict[str, str]:
         """Yalnizca istenen anahtarlar (tray gibi hafif okuyucular icin)."""
@@ -213,6 +255,9 @@ class WinSecService:
         return bkey in saved and saved[bkey] == raw and type(saved[bkey]) is type(raw)
 
     def _write(self, s: WinSetting, target) -> None:
+        if s.fw_inbound:
+            self._env.set_firewall_inbound(s.fw_inbound, target)
+            return
         if s.firewall:
             self._env.set_firewall(s.firewall, bool(target))
             return
@@ -301,13 +346,10 @@ def read_exploit_protection(run: Callable | None = None) -> dict[str, str]:
 
 
 def _ps(command: str) -> str:
-    proc = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
-        capture_output=True, timeout=60, creationflags=subprocess.CREATE_NO_WINDOW,
-    )
-    if proc.returncode != 0:
-        raise WinSecError(proc.stderr.decode("utf-8", "replace").strip() or f"çıkış kodu {proc.returncode}")
-    return proc.stdout.decode("utf-8", "replace")
+    rc, out, err = pshell.run(command)
+    if rc != 0:
+        raise WinSecError(err.strip() or f"çıkış kodu {rc}")
+    return out
 
 
 def read_tpm(run: Callable[[str], str] | None = None) -> dict:

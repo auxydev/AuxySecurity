@@ -370,6 +370,21 @@ def cmd_defender_quarantine(args) -> int:
     return 0
 
 
+def cmd_firewall_rule(args) -> int:
+    reading = args.op in ("list", "list-blocks")
+    if not _helper_guard(args, needs_admin=not reading):
+        return 3
+    res = actions.firewall_op(args.op, args.value or "")
+    _report(args, res.ok, res.message, res.changed, res.data)
+    if not res.ok:
+        print(f"HATA: {res.message}", file=sys.stderr)
+        return 1
+    for r in res.data or []:
+        print(f"  {r['name']:<42} {r['profile']:<8} {r['display_name']}  -> {r['program']}")
+    print(res.message)
+    return 0
+
+
 def cmd_agent(_args) -> int:
     from auxy.agent.tray import run
 
@@ -525,6 +540,12 @@ def main(argv: list[str] | None = None) -> int:
     p_dq.add_argument("--yes", action="store_true", help="offline-scan: yeniden başlatmayı onayla")
     p_dq.add_argument("--result", help=argparse.SUPPRESS)
     p_dq.set_defaults(func=cmd_defender_quarantine)
+
+    p_fr = sub.add_parser("firewall-rule", help="Güvenlik duvarı kuralları (listeleme yönetici istemez)")
+    p_fr.add_argument("op", choices=["list", "list-blocks", "disable", "enable", "block", "unblock"])
+    p_fr.add_argument("value", nargs="?", help="disable/enable: kural adı; block/unblock: program yolu (unblock: kural adı da olur)")
+    p_fr.add_argument("--result", help=argparse.SUPPRESS)
+    p_fr.set_defaults(func=cmd_firewall_rule)
 
     sub.add_parser("agent", help="Tray ajanini baslat").set_defaults(func=cmd_agent)
 

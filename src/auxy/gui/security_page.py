@@ -7,12 +7,15 @@ from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
-from auxy.core import actions, winsec
+from auxy.core import actions, firewall, winsec
 
 MUTED = ("gray40", "gray60")
 GOOD, BAD = "#2e9e5b", "#d64545"
 SMARTSCREEN_TR = {"Kapalı": "off", "Uyar": "warn", "Engelle": "block"}
 SMARTSCREEN_BACK = {v: k for k, v in SMARTSCREEN_TR.items()}
+INBOUND_TR = {"Varsayılan": "default", "Engelle": "block", "İzin ver": "allow"}
+INBOUND_BACK = {v: k for k, v in INBOUND_TR.items()}
+RULES_SHOWN = 40
 
 # Zayiflatici (kapatici) degisiklikler icin onay metinleri
 CONFIRM_OFF = {
@@ -86,7 +89,16 @@ class SecurityPage(ctk.CTkFrame):
         for key in ("fw_domain", "fw_private", "fw_public"):
             self.sw[key] = c.switch_row(winsec.WINSEC_SETTINGS[key].label.split(": ")[1],
                                         lambda k=key: self._toggle(k))
-        c.line("Gelen bağlantılar Windows varsayılanına göre engellenir.", MUTED)
+        c.line("Gelen bağlantılar (varsayılan: Windows engeller; 'İzin ver' güvenliği azaltır):", MUTED)
+        self.inbound_menus: dict[str, ctk.CTkOptionMenu] = {}
+        for key in ("fw_in_domain", "fw_in_private", "fw_in_public"):
+            ctk.CTkLabel(c, text=winsec.WINSEC_SETTINGS[key].label.split(": ")[1], anchor="w").grid(
+                row=c.next_row, column=0, sticky="w", padx=16, pady=4)
+            menu = ctk.CTkOptionMenu(c, values=list(INBOUND_TR), width=120,
+                                     command=lambda shown, k=key: self._set_inbound(k, shown))
+            menu.grid(row=c.next_row, column=2, padx=(0, 16), pady=4)
+            c.next_row += 1
+            self.inbound_menus[key] = menu
 
         # SmartScreen
         c = Card(body, "Uygulama ve tarayıcı denetimi (SmartScreen)", 2)
@@ -118,8 +130,28 @@ class SecurityPage(ctk.CTkFrame):
         self.exploit_lbl = c.line("Okunuyor…")
         c.line("Windows tek tek 'varsayılana dön' sunmadığı için bu bölümde değişiklik yapılmaz.", MUTED)
 
+        # Guvenlik duvari kurallari
+        c = Card(body, "Güvenlik duvarı kuralları", 5)
+        c.line("Etkin, gelen bağlantıya izin veren kurallar. Pasifleştirmek geri alınabilir (silme yok). "
+               "Listelemek yönetici izni istemez; değiştirmek ister.", MUTED)
+        bar = ctk.CTkFrame(c, fg_color="transparent")
+        bar.grid(row=c.next_row, column=0, columnspan=3, sticky="ew", padx=16, pady=4)
+        c.next_row += 1
+        ctk.CTkButton(bar, text="Kuralları listele", width=120, command=self.load_rules).pack(side="left")
+        self.rule_filter = ctk.CTkEntry(bar, width=170, placeholder_text="Ara (ad / program)")
+        self.rule_filter.pack(side="left", padx=6)
+        self.rule_filter.bind("<KeyRelease>", lambda _e: self._render_rules())
+        ctk.CTkButton(bar, text="Programı engelle…", width=140, command=self.block_program).pack(side="right")
+        self.rules_note = c.line("(Listelemek için 'Kuralları listele'ye bas.)", MUTED)
+        self.rules_frame = ctk.CTkFrame(c, fg_color="transparent")
+        self.rules_frame.grid(row=c.next_row, column=0, columnspan=3, sticky="ew", padx=16, pady=(0, 6))
+        self.rules_frame.columnconfigure(0, weight=1)
+        c.next_row += 1
+        self.rules_cache: list[dict] = []
+        self.blocks_cache: list[dict] = []
+
         # Dislamalar
-        c = Card(body, "Defender dışlamaları", 5)
+        c = Card(body, "Defender dışlamaları", 6)
         c.line("Dışlanan konumlar taranmaz. Okumak ve değiştirmek yönetici izni (UAC) ister.", MUTED)
         bar = ctk.CTkFrame(c, fg_color="transparent")
         bar.grid(row=c.next_row, column=0, columnspan=3, sticky="ew", padx=16, pady=4)
@@ -159,6 +191,8 @@ class SecurityPage(ctk.CTkFrame):
         for key, sw in self.sw.items():
             (sw.select if values[key] == "on" else sw.deselect)()
         self.ss_menu.set(SMARTSCREEN_BACK.get(values["smartscreen_apps"], "Uyar"))
+        for key, menu in self.inbound_menus.items():
+            menu.set(INBOUND_BACK.get(values.get(key, "default"), "Varsayılan"))
         self.device_lbl.configure(
             text=f"Secure Boot: {yn(device.secure_boot, 'Açık', 'Kapalı')}   •   "
                  f"Sanallaştırma tabanlı güvenlik: {yn(device.vbs_running, 'Çalışıyor', 'Kapalı')}   •   "
@@ -202,6 +236,107 @@ class SecurityPage(ctk.CTkFrame):
             self.refresh()
             return
         self._apply("smartscreen_apps", value)
+
+    def _set_inbound(self, key: str, shown: str) -> None:
+        value = INBOUND_TR[shown]
+        if value == "allow" and not messagebox.askyesno(
+                "Emin misin?", "Gelen bağlantılara varsayılan olarak İZİN vermek bilgisayarını ağdan gelen "
+                               "saldırılara açar.\nDevam edilsin mi?", icon="warning"):
+            self.refresh()
+            return
+        self._apply(key, value)
+
+    # ---- guvenlik duvari kurallari ----
+    def load_rules(self) -> None:
+        self.rules_note.configure(text="Kurallar okunuyor…")
+
+        def read():
+            rules = actions.firewall_op("list")
+            blocks = actions.firewall_op("list-blocks")
+            return rules, blocks
+
+        self.app.worker.submit(read, self._rules_loaded)
+
+    def _rules_loaded(self, res, exc) -> None:
+        if exc is not None:
+            self.rules_note.configure(text=str(exc), text_color=BAD)
+            return
+        rules, blocks = res
+        if not rules.ok:
+            self.rules_note.configure(text=rules.message, text_color=BAD)
+            return
+        self.rules_cache = rules.data or []
+        self.blocks_cache = (blocks.data or []) if blocks.ok else []
+        self._render_rules()
+
+    def _render_rules(self) -> None:
+        for w in self.rules_frame.winfo_children():
+            w.destroy()
+        q = self.rule_filter.get().strip().lower()
+        shown = [r for r in self.rules_cache
+                 if not q or q in r["display_name"].lower() or q in r["program"].lower() or q in r["name"].lower()]
+        self.rules_note.configure(
+            text=f"{len(shown)} kural" + (f" (ilk {RULES_SHOWN} gösteriliyor)" if len(shown) > RULES_SHOWN else "")
+                 + f" • {len(self.blocks_cache)} engellenen program • {len(firewall.disabled_by_us())} pasifleştirdiğin kural",
+            text_color=MUTED)
+        row = 0
+        # bizim engelledigimiz programlar
+        for b in self.blocks_cache:
+            if b["name"].startswith(firewall.BLOCK_PREFIX + "in-"):
+                ctk.CTkLabel(self.rules_frame, text=f"⛔ ENGELLİ: {b['program']}", anchor="w", wraplength=440,
+                             justify="left", text_color=BAD).grid(row=row, column=0, sticky="w", pady=2)
+                ctk.CTkButton(self.rules_frame, text="Engeli kaldır", width=100, height=24,
+                              command=lambda n=b["name"]: self.unblock(n)).grid(row=row, column=1, padx=(8, 0))
+                row += 1
+        # bizim pasiflestirdiklerimiz
+        for name in firewall.disabled_by_us():
+            ctk.CTkLabel(self.rules_frame, text=f"⏸ Pasif (senin): {name}", anchor="w", wraplength=440,
+                         justify="left").grid(row=row, column=0, sticky="w", pady=2)
+            ctk.CTkButton(self.rules_frame, text="Yeniden etkinleştir", width=130, height=24,
+                          command=lambda n=name: self.enable_rule(n)).grid(row=row, column=1, padx=(8, 0))
+            row += 1
+        for r in shown[:RULES_SHOWN]:
+            prog = r["program"] if r["program"] not in ("", "Any") else "(tüm programlar)"
+            ctk.CTkLabel(self.rules_frame, text=f"{r['display_name']}  [{r['profile']}]\n{prog}", anchor="w",
+                         wraplength=440, justify="left").grid(row=row, column=0, sticky="w", pady=2)
+            ctk.CTkButton(self.rules_frame, text="Pasifleştir", width=100, height=24,
+                          command=lambda x=r: self.disable_rule(x)).grid(row=row, column=1, padx=(8, 0))
+            row += 1
+
+    def disable_rule(self, r: dict) -> None:
+        if not messagebox.askyesno(
+                "Kuralı pasifleştir",
+                f"'{r['display_name']}' kuralı pasifleştirilecek.\nProgram: {r['program'] or 'tüm programlar'}\n\n"
+                "Bu kuralın izin verdiği gelen bağlantılar engellenir; bazı özellikler (yazıcı paylaşımı, "
+                "uzak masaüstü vb.) çalışmayabilir. Geri alınabilir.\nDevam edilsin mi?", icon="warning"):
+            return
+        self._firewall_op("disable", r["name"])
+
+    def enable_rule(self, name: str) -> None:
+        self._firewall_op("enable", name)
+
+    def block_program(self) -> None:
+        path = filedialog.askopenfilename(title="Engellenecek program", filetypes=[("Programlar", "*.exe"), ("Tümü", "*.*")])
+        if not path:
+            return
+        if not messagebox.askyesno(
+                "Programı engelle",
+                f"'{Path(path).name}' için gelen VE giden tüm ağ bağlantıları engellenecek.\n{path}\n\n"
+                "Program internete erişemez. Geri alınabilir ('Engeli kaldır').\nDevam edilsin mi?", icon="warning"):
+            return
+        self._firewall_op("block", str(Path(path)))
+
+    def unblock(self, rule_name: str) -> None:
+        self._firewall_op("unblock", rule_name)
+
+    def _firewall_op(self, op: str, value: str) -> None:
+        self.say("Güvenlik duvarı güncelleniyor… (yönetici izni istenebilir)")
+
+        def done(res, exc):
+            self.say(str(exc) if exc else res.message, error=exc is not None or not res.ok)
+            self.load_rules()
+
+        self.app.worker.submit(lambda: actions.firewall_op(op, value), done)
 
     def _apply(self, key: str, value: str) -> None:
         label = winsec.WINSEC_SETTINGS[key].label

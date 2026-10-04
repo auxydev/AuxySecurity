@@ -6,7 +6,6 @@ import os
 
 import customtkinter as ctk
 
-from auxy import __version__
 from auxy.core import actions, defender, paths, system
 from auxy.core.settings import SETTINGS
 from auxy.core.settings import TOGGLE_KEYS as TOGGLES

@@ -14,7 +14,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from auxy.core import scan
+from auxy.core import pshell, scan
 from auxy.core.actions import ActionResult
 from auxy.core.log import get_logger
 from auxy.core.service import AuxyError
@@ -62,15 +62,12 @@ def _mp(args: list[str]) -> tuple[int, str]:
         [str(scan.mpcmdrun_path()), *args], capture_output=True, timeout=120,
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
-    return proc.returncode, proc.stdout.decode("utf-8", "replace")
+    return proc.returncode, pshell.decode_output(proc.stdout)  # yerel program: UTF-8 ya da OEM kod sayfasi
 
 
 def _ps(command: str) -> tuple[int, str]:
-    proc = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
-        capture_output=True, timeout=300, creationflags=subprocess.CREATE_NO_WINDOW,
-    )
-    return proc.returncode, (proc.stdout + proc.stderr).decode("utf-8", "replace")
+    rc, out, err = pshell.run(command, timeout=300)
+    return rc, out + err
 
 
 def list_items(run: Callable[[list[str]], tuple[int, str]] = _mp) -> list[QuarantinedItem]:

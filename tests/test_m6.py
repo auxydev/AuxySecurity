@@ -24,6 +24,7 @@ class FakeEnv(winsec.WinEnv):
     def __init__(self, apply=True):
         self.reg = {}
         self.fw = {"domain": True, "private": True, "public": True}
+        self.inbound = {"domain": "NotConfigured", "private": "NotConfigured", "public": "NotConfigured"}
         self.apply = apply
         self.calls = []
 
@@ -42,6 +43,17 @@ class FakeEnv(winsec.WinEnv):
     def firewall_enabled(self, profile):
         return self.fw[profile]
 
+    def firewall_inbound_all(self):
+        return dict(self.inbound)
+
+    def firewall_inbound(self, profile):
+        return self.inbound[profile]
+
+    def set_firewall_inbound(self, profile, value):
+        self.calls.append(("fw_in", profile, value))
+        if self.apply:
+            self.inbound[profile] = value
+
     def set_firewall(self, profile, enabled):
         self.calls.append(("fw", profile, enabled))
         if self.apply:
@@ -56,6 +68,7 @@ def svc(env, admin=True):
 def test_defaults_when_values_absent():
     got = svc(FakeEnv()).get_all()
     assert got == {"fw_domain": "on", "fw_private": "on", "fw_public": "on",
+                   "fw_in_domain": "default", "fw_in_private": "default", "fw_in_public": "default",
                    "smartscreen_apps": "warn", "smartscreen_store": "on", "hvci": "off"}
 
 
@@ -343,3 +356,62 @@ def test_result_carries_data(monkeypatch):
     monkeypatch.setattr(system, "is_admin", lambda: False)
     monkeypatch.setattr(system, "run_elevated_and_wait", fake)
     assert actions.read_tpm().data == {"a": [1]}
+
+
+# ---------------- gelen baglanti eylemi + yedek anahtarlarinin karismamasi (eksik tamamlama) ----------------
+def test_inbound_action_set_verify_and_revert():
+    env = FakeEnv()
+    s = svc(env)
+    r = s.set("fw_in_public", "block")
+    assert r.changed and (r.old, r.new) == ("default", "block")
+    assert env.calls == [("fw_in", "public", "Block")] and env.inbound["public"] == "Block"
+    assert backup.load() == {"ws:fw_in_public": "NotConfigured"}
+    assert s.get_all()["fw_in_public"] == "block"
+    s.revert("fw_in_public")
+    assert env.inbound["public"] == "NotConfigured" and backup.load() == {}
+
+
+def test_inbound_noop_not_applied_and_admin():
+    env = FakeEnv()
+    assert not svc(env).set("fw_in_private", "default").changed and env.calls == []
+    with pytest.raises(NotAdminError):
+        svc(env, admin=False).set("fw_in_private", "allow")
+    bad = FakeEnv(apply=False)
+    with pytest.raises(WinSecError, match="değiştirilemedi"):
+        svc(bad).set("fw_in_domain", "allow")
+    assert backup.load() == {}
+
+
+def test_inbound_prefetch_is_single_call_and_falls_back():
+    env = FakeEnv()
+    calls = {"all": 0, "one": 0}
+    env.firewall_inbound_all = lambda: calls.__setitem__("all", calls["all"] + 1) or dict(env.inbound)
+    env.firewall_inbound = lambda p: calls.__setitem__("one", calls["one"] + 1) or "NotConfigured"
+    svc(env).get_all()
+    assert calls == {"all": 1, "one": 0}  # 3 profil icin TEK sorgu
+    def boom():
+        raise RuntimeError("ps yok")
+    env.firewall_inbound_all = boom
+    assert svc(env).get_all()["fw_in_domain"] == "default"  # onbellek yoksa profil basina okuma
+
+
+def test_defender_revert_all_ignores_winsec_and_other_backup_keys():
+    """GERCEK HATA: yedekte 'ws:...' / 'fwrules' varken `revert()` UnknownSettingError ile cokuyordu."""
+    from auxy.core.service import DefenderService
+
+    backup.remember_original("ws:fw_public", True)
+    backup.set_value("fwrules", ["Kural-1"])
+    backup.remember_original("pua", 1)
+    calls = []
+
+    class St:
+        tamper_protected = False
+        prefs = {"PUAProtection": 0}
+
+    DefenderService(read=lambda: St(), run=lambda c: calls.append(c) or (0, "", ""), is_admin=lambda: True)
+    # PUAProtection 0 -> 1 geri alma: okuma sahte oldugundan dogrulama gecmez; amac sadece anahtar filtresi
+    try:
+        DefenderService(read=lambda: St(), run=lambda c: (0, "", ""), is_admin=lambda: True).revert()
+    except AuxyError as exc:
+        assert "Bilinmeyen ayar" not in str(exc)  # eski hata: UnknownSettingError('ws:fw_public')
+    assert backup.load().get("ws:fw_public") is True and backup.load().get("fwrules") == ["Kural-1"]  # dokunulmadi

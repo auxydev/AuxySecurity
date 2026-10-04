@@ -9,9 +9,9 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
 from pathlib import Path
 
+from auxy.core import pshell
 from auxy.core.actions import ActionResult
 from auxy.core.log import get_logger
 from auxy.core.service import AuxyError
@@ -86,12 +86,7 @@ def validate_op(op: str, kind: str, value: str = "") -> str:
 
 
 def _powershell(command: str, arg: str = "") -> tuple[int, str, str]:
-    env = {**os.environ, "AUXY_ARG": arg}
-    proc = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
-        capture_output=True, timeout=60, env=env, creationflags=subprocess.CREATE_NO_WINDOW,
-    )
-    return proc.returncode, proc.stdout.decode("utf-8", "replace"), proc.stderr.decode("utf-8", "replace")
+    return pshell.run(command, {"AUXY_ARG": arg})
 
 
 def _as_list(value) -> list[str]:
