@@ -2,6 +2,8 @@
 
 **Durum:** İncelemede  **Tarih:** 2026-10-04
 
+> **Sonradan tamamlananlar:** **süreçler arası tarama kilidi**, **sürükle-bırak taraması**, **etkin tehditleri temizle (Defender)**, **onaylı çevrimdışı tarama** (gerçek yeniden başlatma denenmedi) ve ilerleme çubuğu kozmetiği eklendi. Ayrıntı: [B01](B01-eksik-tamamlama.md).
+
 ## 1. Hedef
 Hızlı / tam / özel tarama başlatma, iptal, imza güncelleme, tehdit listesi ve tarama geçmişi; EICAR test dosyasının algılandığının kanıtı.
 

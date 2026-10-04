@@ -2,6 +2,8 @@
 
 **Durum:** İncelemede  **Tarih:** 2026-10-04
 
+> **Sonradan tamamlananlar:** **çoklu dosya/klasör ekleme**, **parola korumalı anahtar yedeği (dışa/içe aktarma)** ve **Defender karantinasını listele/geri yükle** eklendi. Ayrıntı: [B01](B01-eksik-tamamlama.md).
+
 ## 1. Hedef
 Şüpheli dosyayı şifreleyip izole eden, geri yüklenebilir bir kasa; arayüz, CLI ve tehdit listesi entegrasyonuyla.
 

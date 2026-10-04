@@ -2,6 +2,8 @@
 
 **Durum:** İncelemede  **Tarih:** 2026-10-04
 
+> **Sonradan tamamlananlar:** koyu tema tüm sayfalarda görsel olarak kontrol edildi, sorun çıkmadı. Ayrıntı: [B01](B01-eksik-tamamlama.md).
+
 ## 1. Hedef
 İlk görülebilir arayüz: tek bakışta güvenlik durumu ve gerçek ayarlara bağlı hızlı anahtarlar.
 

@@ -2,6 +2,8 @@
 
 **Durum:** İncelemede (yönetici yazma yolları gerçek makinede doğrulandı; **güvenlik duvarı yazma ve HVCI'yi gerçekten değiştirme hâlâ denenmedi**)  **Tarih:** 2026-10-04
 
+> **Sonradan tamamlananlar:** **güvenlik duvarı kuralları** (listele/pasifleştir/program engelle), **gelen bağlantı eylemi**, tray güvenlik duvarı anahtarları eklendi; PowerShell'de Türkçe karakter hatası düzeltildi. Ayrıntı: [B01](B01-eksik-tamamlama.md).
+
 ## 1. Hedef
 Defender dışındaki Windows Security bölümlerini (güvenlik duvarı, SmartScreen, çekirdek yalıtımı, cihaz güvenliği, Güvenlik Merkezi, exploit protection) ve Defender dışlamalarını tek yerden görmek ve yönetmek. Windows Security'ye yönlendirme yok.
 

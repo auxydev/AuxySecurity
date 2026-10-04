@@ -2,6 +2,8 @@
 
 **Durum:** İncelemede  **Tarih:** 2026-10-04
 
+> **Sonradan tamamlananlar:** Ayarlar'a **Windows açılışında başlat** anahtarı (UAC ile) eklendi; başlangıç görevinin çalışma dizini System32 olurdu, düzeltildi; tray'e **güvenlik duvarı alt menüsü** eklendi. Ayrıntı: [B01](B01-eksik-tamamlama.md).
+
 ## 1. Hedef
 "Başlangıçta çalışsın ve yük oluşturmasın." Boşta duran küçük bir tray ajanı, hızlı anahtarlar ve yönetici yetkisi gereken
 işlerde **uygulamanın kendisinin UAC istemesi** (kullanıcıyı Windows Security'ye göndermeden).

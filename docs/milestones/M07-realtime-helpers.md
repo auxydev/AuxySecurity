@@ -2,6 +2,8 @@
 
 **Durum:** İncelemede  **Tarih:** 2026-10-04
 
+> **Sonradan tamamlananlar:** **alt klasör izleme seçeneği** ve **sürükle-bırak taraması** eklendi. Ayrıntı: [B01](B01-eksik-tamamlama.md).
+
 ## 1. Hedef
 Tray ajanına olay tabanlı yardımcılar eklemek: indirilen dosyaları otomatik taramak, Defender tehdit olaylarını bildirmek, USB sürücüleri taramak, haftalık tarama yapmak, sağ tık "Auxy ile tara". Hepsi boşta CPU kullanmamalı.
 
