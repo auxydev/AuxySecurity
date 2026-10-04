@@ -148,17 +148,45 @@ def cmd_update_signatures(_args) -> int:
     return 0 if ok else 1
 
 
+def _ask_password(confirm: bool) -> str:
+    import getpass
+
+    pw = getpass.getpass("Parola: ")
+    if confirm and getpass.getpass("Parola (tekrar): ") != pw:
+        raise AuxyError("Parolalar uyuşmuyor.")
+    return pw
+
+
 def cmd_vault(args) -> int:
+    from auxy.core import vault as vaultmod
     from auxy.core.vault import Vault
 
+    targets = args.target or []
     try:
-        vault = Vault.default()
-        if args.action == "add":
-            if not args.target:
-                print("HATA: dosya yolu ver: auxy vault add <yol>", file=sys.stderr)
+        if args.action == "import-key":  # kasa anahtari kayipsa da calisabilmeli: Vault.default() ACILMAZ
+            if not targets:
+                print("HATA: yedek dosyası ver: auxy vault import-key <dosya>", file=sys.stderr)
                 return 2
-            item = vault.add(args.target, args.reason)
-            print(f"Kasaya alındı: {item.name}  (id {item.id[:8]}, {item.size} bayt, sha256 {item.sha256[:16]}…)")
+            print(vaultmod.import_key_file(targets[0], _ask_password(confirm=False)))
+            return 0
+        vault = Vault.default()
+        if args.action == "export-key":
+            if not targets:
+                print("HATA: hedef dosya ver: auxy vault export-key <dosya> (USB gibi veri dizini DIŞINDA)", file=sys.stderr)
+                return 2
+            out = vault.export_key_file(targets[0], _ask_password(confirm=True))
+            print(f"Anahtar yedeği yazıldı: {out}\nBu dosya + parola olmadan kasa, Windows profili değişirse açılamaz; güvenli bir yerde sakla.")
+            return 0
+        if args.action == "add":
+            if not targets:
+                print("HATA: dosya yolu ver: auxy vault add <yol> [<yol> ...]", file=sys.stderr)
+                return 2
+            added, errors = vault.add_many(targets, args.reason)
+            for item in added:
+                print(f"Kasaya alındı: {item.name}  (id {item.id[:8]}, {item.size} bayt, sha256 {item.sha256[:16]}…)")
+            for err in errors:
+                print(f"HATA: {err}", file=sys.stderr)
+            return 1 if errors else 0
         elif args.action == "list":
             items = vault.list()
             if not items:
@@ -166,10 +194,10 @@ def cmd_vault(args) -> int:
             for i in items:
                 print(f"{i.id[:8]}  {i.quarantined_at}  {i.size:>10} B  {i.original_path}  [{i.reason}]")
         else:
-            if not args.target:
+            if not targets:
                 print(f"HATA: kayıt id'si ver: auxy vault {args.action} <id>", file=sys.stderr)
                 return 2
-            item = _find_vault_item(vault, args.target)
+            item = _find_vault_item(vault, targets[0])
             if args.action == "restore":
                 out = vault.restore(item.id, args.to, args.overwrite)
                 print(f"Geri yüklendi: {out}")
@@ -432,8 +460,9 @@ def main(argv: list[str] | None = None) -> int:
         func=cmd_update_signatures)
 
     p_vault = sub.add_parser("vault", help="Karantina kasası")
-    p_vault.add_argument("action", choices=["add", "list", "restore", "delete"])
-    p_vault.add_argument("target", nargs="?", help="add: dosya yolu; restore/delete: kayıt id'si")
+    p_vault.add_argument("action", choices=["add", "list", "restore", "delete", "export-key", "import-key"])
+    p_vault.add_argument("target", nargs="*", help="add: dosya yolları; restore/delete: kayıt id'si; "
+                                                   "export-key/import-key: yedek dosyası")
     p_vault.add_argument("--reason", default="Elle eklendi")
     p_vault.add_argument("--to", help="restore: farklı hedef yol")
     p_vault.add_argument("--overwrite", action="store_true")

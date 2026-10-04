@@ -7,10 +7,54 @@ from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
-from auxy.core.vault import Vault, VaultItem
+from auxy.core.vault import MIN_PASSWORD_LEN, Vault, VaultItem, import_key_file
 
 MUTED = ("gray40", "gray60")
 _vault: Vault | None = None
+
+
+def ask_password(parent, title: str, confirm: bool = False) -> str | None:
+    """Maskeli parola kutusu (modal). Iptal -> None. confirm=True: tekrar + uzunluk kurali."""
+    dlg = ctk.CTkToplevel(parent)
+    dlg.title(title)
+    dlg.geometry("380x" + ("250" if confirm else "180"))
+    dlg.resizable(False, False)
+    dlg.transient(parent.winfo_toplevel())
+    result: dict[str, str | None] = {"v": None}
+    ctk.CTkLabel(dlg, text=title, font=ctk.CTkFont(weight="bold")).pack(pady=(14, 6))
+    e1 = ctk.CTkEntry(dlg, show="•", width=300, placeholder_text="Parola")
+    e1.pack(pady=4)
+    e2 = None
+    if confirm:
+        e2 = ctk.CTkEntry(dlg, show="•", width=300, placeholder_text="Parola (tekrar)")
+        e2.pack(pady=4)
+    err = ctk.CTkLabel(dlg, text="", text_color="#d64545")
+    err.pack()
+
+    def ok(_e=None):
+        pw = e1.get()
+        if confirm:
+            if len(pw) < MIN_PASSWORD_LEN:
+                err.configure(text=f"En az {MIN_PASSWORD_LEN} karakter.")
+                return
+            if pw != e2.get():
+                err.configure(text="Parolalar uyuşmuyor.")
+                return
+        elif not pw:
+            err.configure(text="Parola gerekli.")
+            return
+        result["v"] = pw
+        dlg.destroy()
+
+    row = ctk.CTkFrame(dlg, fg_color="transparent")
+    row.pack(pady=8)
+    ctk.CTkButton(row, text="Tamam", width=100, command=ok).pack(side="left", padx=6)
+    ctk.CTkButton(row, text="İptal", width=100, fg_color="transparent", border_width=1,
+                  text_color=("gray20", "gray85"), command=dlg.destroy).pack(side="left")
+    dlg.bind("<Return>", ok)
+    dlg.after(100, lambda: (dlg.grab_set(), e1.focus_set()))
+    parent.wait_window(dlg)
+    return result["v"]
 
 
 def get_vault() -> Vault:
@@ -46,8 +90,19 @@ class VaultPage(ctk.CTkFrame):
         head.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         ctk.CTkLabel(head, text="Karantina", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
         ctk.CTkButton(head, text="Yenile", width=70, command=self.refresh).pack(side="right")
-        ctk.CTkButton(head, text="Dosya ekle…", width=110, command=self.add_file).pack(
+        ctk.CTkButton(head, text="Klasör ekle…", width=100, command=self.add_folder).pack(
             side="right", padx=(0, 8))
+        ctk.CTkButton(head, text="Dosya ekle…", width=100, command=self.add_file).pack(
+            side="right", padx=(0, 8))
+        keys = ctk.CTkFrame(self, fg_color="transparent")
+        keys.grid(row=4, column=0, sticky="w", pady=(8, 0))
+        ctk.CTkButton(keys, text="Anahtarı yedekle…", width=140, height=26, fg_color="transparent",
+                      border_width=1, text_color=("gray20", "gray85"), command=self.export_key).pack(side="left")
+        ctk.CTkButton(keys, text="Anahtarı geri yükle…", width=150, height=26, fg_color="transparent",
+                      border_width=1, text_color=("gray20", "gray85"), command=self.import_key).pack(
+            side="left", padx=8)
+        ctk.CTkLabel(keys, text="Windows profili değişirse yedek olmadan kasa açılamaz.",
+                     text_color=MUTED).pack(side="left")
 
         ctk.CTkLabel(
             self, anchor="w", justify="left", wraplength=640, text_color=MUTED,
@@ -96,9 +151,75 @@ class VaultPage(ctk.CTkFrame):
 
     # ---- eylemler ----
     def add_file(self) -> None:
-        path = filedialog.askopenfilename(title="Kasaya alınacak dosya")
-        if path:
-            self.quarantine(path, "Elle eklendi")
+        paths = filedialog.askopenfilenames(title="Kasaya alınacak dosyalar (birden fazla seçilebilir)")
+        if paths:
+            self.quarantine_many(list(paths), "Elle eklendi")
+
+    def add_folder(self) -> None:
+        folder = filedialog.askdirectory(title="Dosyaları kasaya alınacak klasör")
+        if not folder:
+            return
+        files = sorted(str(p) for p in Path(folder).iterdir() if p.is_file())
+        if not files:
+            self.say("Klasörde dosya yok.", error=True)
+            return
+        if not messagebox.askyesno(
+            "Klasörü kasaya al",
+            f"'{folder}' klasöründeki {len(files)} dosya kasaya alınacak (alt klasörler dahil değil).\n"
+            "Orijinal dosyalar silinir; kasadan geri yüklenebilir.\nDevam edilsin mi?", icon="warning"):
+            return
+        self.quarantine_many(files, f"Klasör: {Path(folder).name}")
+
+    def quarantine_many(self, paths: list[str], reason: str) -> None:
+        self.say(f"{len(paths)} dosya kasaya alınıyor…")
+        self.app.worker.submit(lambda: get_vault().add_many(paths, reason), self._on_added_many)
+
+    def _on_added_many(self, res, exc) -> None:
+        if exc is not None:
+            self.say(str(exc), error=True)
+        else:
+            added, errors = res
+            text = f"{len(added)} dosya kasaya alındı."
+            if errors:
+                text += f" {len(errors)} dosya alınamadı: " + "; ".join(errors[:3]) + (" …" if len(errors) > 3 else "")
+            self.say(text, error=bool(errors))
+        self.refresh()
+        self.app.pages["scan"].refresh_lists()
+
+    # ---- anahtar yedegi ----
+    def export_key(self) -> None:
+        dest = filedialog.asksaveasfilename(
+            title="Anahtar yedeğini kaydet (USB bellek gibi veri dizini DIŞINA)", defaultextension=".auxkey",
+            initialfile="auxy-kasa-anahtari.auxkey", filetypes=[("AuxySecurity anahtar yedeği", "*.auxkey")])
+        if not dest:
+            return
+        pw = ask_password(self, "Anahtar yedeği için parola belirle", confirm=True)
+        if pw is None:
+            return
+        self.say("Anahtar yedeği yazılıyor…")
+        self.app.worker.submit(lambda: get_vault().export_key_file(dest, pw),
+                               lambda out, exc: self.say(
+                                   str(exc) if exc else f"Yedek yazıldı: {out}. Parolayı ve dosyayı güvenli sakla.",
+                                   error=exc is not None))
+
+    def import_key(self) -> None:
+        src = filedialog.askopenfilename(title="Anahtar yedeği dosyası",
+                                         filetypes=[("AuxySecurity anahtar yedeği", "*.auxkey"), ("Tümü", "*.*")])
+        if not src:
+            return
+        pw = ask_password(self, "Yedeğin parolası", confirm=False)
+        if pw is None:
+            return
+        global _vault
+        self.say("Anahtar geri yükleniyor…")
+
+        def done(msg, exc):
+            global _vault
+            _vault = None  # anahtar degisti: kasa yeniden acilsin
+            self.say(str(exc) if exc else msg, error=exc is not None)
+            self.refresh()
+
+        self.app.worker.submit(lambda: import_key_file(src, pw), done)
 
     def quarantine(self, path: str, reason: str) -> None:
         """Baska sayfalardan da cagrilir (tehdit listesi)."""

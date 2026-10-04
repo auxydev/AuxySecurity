@@ -25,6 +25,7 @@ from pathlib import Path
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 from auxy.core import paths
 from auxy.core.log import get_logger
@@ -129,6 +130,45 @@ def load_or_create_key(key_file: Path) -> bytes:
     return key
 
 
+# ---------------- anahtar yedegi (parola korumali) ----------------
+KEY_EXPORT_MAGIC = b"AUXK1"
+MIN_PASSWORD_LEN = 8
+_SCRYPT = dict(n=2**15, r=8, p=1)  # ~32 MB bellek, ~0.1 sn: kaba kuvveti yavaslatir
+
+
+def _kdf(password: str, salt: bytes) -> bytes:
+    return Scrypt(salt=salt, length=32, **_SCRYPT).derive(password.encode("utf-8"))
+
+
+def encrypt_key_backup(key: bytes, password: str) -> bytes:
+    """Kasa anahtarini parolayla sifreler. Bicim: magic(5) + tuz(16) + nonce(12) + sifreli(32+16)."""
+    if len(password) < MIN_PASSWORD_LEN:
+        raise VaultError(f"Parola en az {MIN_PASSWORD_LEN} karakter olmalı.")
+    salt, nonce = os.urandom(16), os.urandom(12)
+    ct = AESGCM(_kdf(password, salt)).encrypt(nonce, key, KEY_EXPORT_MAGIC + salt)
+    return KEY_EXPORT_MAGIC + salt + nonce + ct
+
+
+def decrypt_key_backup(blob: bytes, password: str) -> bytes:
+    head = len(KEY_EXPORT_MAGIC)
+    if len(blob) < head + 16 + 12 + 16 or blob[:head] != KEY_EXPORT_MAGIC:
+        raise VaultError("Bu bir AuxySecurity anahtar yedeği değil (ya da bozuk).")
+    salt, nonce, ct = blob[head:head + 16], blob[head + 16:head + 28], blob[head + 28:]
+    try:
+        key = AESGCM(_kdf(password, salt)).decrypt(nonce, ct, KEY_EXPORT_MAGIC + salt)
+    except InvalidTag:
+        raise VaultError("Parola yanlış ya da yedek dosyası bozulmuş.") from None
+    if len(key) != 32:
+        raise VaultError("Yedekteki anahtar geçersiz.")
+    return key
+
+
+def save_key(key_file: Path, key: bytes) -> None:
+    import win32crypt
+
+    key_file.write_bytes(win32crypt.CryptProtectData(key, "AuxySecurity vault key", None, None, None, 0))
+
+
 # ---------------- koruma kurallari ----------------
 def _is_under(path: Path, parent: Path) -> bool:
     try:
@@ -189,6 +229,39 @@ class Vault:
         root.mkdir(parents=True, exist_ok=True)
         return cls(root, load_or_create_key(root / "vault.key"))
 
+    # ---- anahtar yedegi ----
+    def export_key_file(self, dest: str | Path, password: str) -> Path:
+        """Anahtari parolayla sifreleyip DISARI yazar. Kasanin/veri dizininin icine yazilamaz
+        (kasa silinirse yedek de gitmesin)."""
+        dest = Path(dest).resolve()
+        for protected in (self.root.resolve(), paths.home().resolve()):
+            if _is_under(dest, protected):
+                raise VaultError("Yedek, AuxySecurity veri dizininin DIŞINA (örn. USB bellek) kaydedilmeli.")
+        blob = encrypt_key_backup(self._key, password)
+        if decrypt_key_backup(blob, password) != self._key:  # yazmadan once kendini dogrula
+            raise VaultError("Yedek doğrulanamadı; yazılmadı.")
+        dest.write_bytes(blob)
+        self._log.info("KASA anahtar yedegi yazildi: %s", dest)
+        return dest
+
+    def verify_key(self, key: bytes) -> bool | None:
+        """Verilen anahtar kasadaki ilk kaydi acabiliyor mu? Kayit yoksa None (dogrulanamaz)."""
+        items = self.list()
+        if not items:
+            return None
+        item = items[0]
+        blob = self._blob(item.id)
+
+        class _Null:
+            def write(self, _b):
+                return None
+
+        try:
+            with open(blob, "rb") as f:
+                return decrypt_stream(f, _Null(), key, blob.stat().st_size, self._chunk) == item.sha256
+        except (VaultError, OSError):
+            return False
+
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self._db, timeout=10)
 
@@ -239,6 +312,16 @@ class Vault:
         if got != expected_sha:
             raise VaultError("Kasadaki kopya doğrulanamadı (özet uyuşmuyor); dosya silinmedi.")
 
+    def add_many(self, targets: list[str | Path], reason: str = "Elle eklendi") -> tuple[list[VaultItem], list[str]]:
+        """Her dosya bagimsiz eklenir; biri basarisiz olunca digerleri etkilenmez. (eklenenler, hata mesajlari)"""
+        added, errors = [], []
+        for t in targets:
+            try:
+                added.append(self.add(t, reason))
+            except VaultError as exc:
+                errors.append(f"{Path(t).name}: {exc}")
+        return added, errors
+
     def list(self) -> list[VaultItem]:
         with closing(self._connect()) as db:
             rows = db.execute("SELECT * FROM items ORDER BY quarantined_at DESC, rowid DESC").fetchall()
@@ -287,3 +370,25 @@ class Vault:
         self._blob(item_id).unlink(missing_ok=True)
         with closing(self._connect()) as db, db:
             db.execute("DELETE FROM items WHERE id = ?", (item_id,))
+
+
+def import_key_file(src: str | Path, password: str, root: Path | None = None) -> str:
+    """Yedekten anahtari geri yukler (DPAPI ile yeniden korur). Kasada kayit varsa, anahtarin onlari
+    gercekten acabildigi DOGRULANIR; acmiyorsa mevcut anahtar KORUNUR. Sonuc mesaji doner."""
+    root = Path(root) if root else paths.home() / "vault"
+    root.mkdir(parents=True, exist_ok=True)
+    try:
+        blob = Path(src).read_bytes()
+    except OSError as exc:
+        raise VaultError(f"Yedek dosyası okunamadı: {exc}") from exc
+    key = decrypt_key_backup(blob, password)
+    key_file = root / "vault.key"
+    vault = Vault(root, key)
+    verdict = vault.verify_key(key)
+    if verdict is False:
+        raise VaultError("Bu anahtar yedeği, kasadaki dosyaları açmıyor (başka bir kasaya ait olabilir). "
+                         "Mevcut anahtara dokunulmadı.")
+    save_key(key_file, key)
+    get_logger().info("KASA anahtari yedekten geri yuklendi")
+    return ("Anahtar geri yüklendi ve kasadaki dosyalarla doğrulandı." if verdict
+            else "Anahtar geri yüklendi (kasa boş olduğu için dosyalarla doğrulanamadı).")
