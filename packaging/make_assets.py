@@ -10,12 +10,11 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root / "src"))
 
 from auxy import __version__  # noqa: E402
-from auxy.agent.icon import make_icon  # noqa: E402
-from auxy.gui import viewmodel as vm  # noqa: E402
+from auxy.agent.icon import make_logo  # noqa: E402
 
 out = Path(__file__).parent
-# ---- ico: yesil onay simgesi, cok boyutlu
-base = make_icon(vm.OK).resize((256, 256))
+# ---- ico: uygulama logosu (durumdan bagimsiz mavi kalkan), cok boyutlu
+base = make_logo(256)
 base.save(out / "auxy.ico", format="ICO", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
 
 # ---- surum bilgisi

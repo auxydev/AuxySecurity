@@ -69,6 +69,25 @@ def _draw_badge(d: ImageDraw.ImageDraw, color: tuple[int, int, int], count: int)
     d.text((cx, cy + 4), text, font=font, fill=(255, 255, 255, 255), anchor="mm")
 
 
+BLUE = (37, 99, 235)
+
+
+@lru_cache(maxsize=4)
+def make_logo(size: int = 256) -> Image.Image:
+    """Uygulama logosu (exe/gorev cubugu/pencere): durumdan bagimsiz mavi kalkan + beyaz 'A' harfi. Onay isareti YOK."""
+    img = Image.new("RGBA", (_BIG, _BIG), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    box = (30, 10, 226, 246)
+    d.polygon(_shield_points(box[1], box[3], box[0], box[2]), fill=_lighten(BLUE, 0.0) + (255,))
+    d.polygon(_shield_points(box[1] + 14, box[3] - 18, box[0] + 16, box[2] - 16), fill=_lighten(BLUE, 0.22) + (255,))
+    w = (255, 255, 255, 255)
+    # 'A': iki egik cubuk + yatay kiris
+    d.line([(128, 62), (84, 190)], fill=w, width=26, joint="curve")
+    d.line([(128, 62), (172, 190)], fill=w, width=26, joint="curve")
+    d.line([(100, 150), (156, 150)], fill=w, width=22)
+    return img.resize((size, size), Image.LANCZOS)
+
+
 @lru_cache(maxsize=32)
 def make_icon(level: str | None, count: int = 0) -> Image.Image:
     """Simge (seviye, sayi) basina BIR KEZ cizilir (her yenilemede yeniden cizim/bellek hareketi olmasin).

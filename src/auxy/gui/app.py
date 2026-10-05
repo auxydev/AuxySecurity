@@ -230,8 +230,21 @@ class App(ctk.CTk, _DnD):
 
         self.refresh()
         self.after(AUTO_REFRESH_MS, self._auto_refresh)
+        self.after(300, self._set_window_icon)  # customtkinter kendi simgesini ~200 ms sonra koyar: sonra ez
         if system.is_frozen():  # ilk calistirmada eski (Store Python) verisini tasima onerisi
             self.after(800, self._offer_migration)
+
+    def _set_window_icon(self) -> None:
+        """Pencere ve gorev cubugu simgesi: uygulama logosu (kalkan + A)."""
+        try:
+            from PIL import ImageTk
+
+            from auxy.agent.icon import make_logo
+
+            self._logo = ImageTk.PhotoImage(make_logo(64))  # referans tutulmazsa silinir
+            self.iconphoto(True, self._logo)
+        except Exception:  # noqa: BLE001 - simge kozmetik, pencere acilmaya devam etmeli
+            pass
 
     def _offer_migration(self) -> None:
         from auxy.core import migrate
