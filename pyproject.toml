@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "auxysecurity"
-version = "0.0.1"
+version = "1.0.0"
 description = "Windows Guvenlik (Microsoft Defender) icin kontrol paneli: hizli anahtarlar, tarama yoneticisi, sifreli karantina kasasi, guvenlik duvari ve SmartScreen kontrolu"
 readme = "README.md"
 keywords = ["windows", "defender", "security", "quarantine", "firewall", "tray"]
 classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3.12",
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
 ]
 requires-python = ">=3.12"
 dependencies = ["pywin32>=306", "customtkinter>=5", "pystray>=0.19", "pillow>=10", "cryptography>=42", "watchdog>=4", "tkinterdnd2>=0.3"]

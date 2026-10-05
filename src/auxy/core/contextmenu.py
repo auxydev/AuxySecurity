@@ -16,7 +16,7 @@ LABEL = "Auxy ile tara"
 
 
 def command_line() -> str:
-    return subprocess.list2cmdline([system.python_exe(windowless=True), "-m", "auxy", "scan-file"]) + ' "%1"'
+    return subprocess.list2cmdline([system.app_exe(windowless=True), *system.app_args(["scan-file"])]) + ' "%1"'
 
 
 def _paths(target: str) -> tuple[str, str]:
@@ -37,7 +37,7 @@ def install() -> None:
         base, command = _paths(target)
         with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, base, 0, winreg.KEY_SET_VALUE) as k:
             winreg.SetValueEx(k, None, 0, winreg.REG_SZ, LABEL)
-            winreg.SetValueEx(k, "Icon", 0, winreg.REG_SZ, system.python_exe(windowless=True))
+            winreg.SetValueEx(k, "Icon", 0, winreg.REG_SZ, system.app_exe(windowless=True))
         with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, command, 0, winreg.KEY_SET_VALUE) as k:
             winreg.SetValueEx(k, None, 0, winreg.REG_SZ, cmd)
 

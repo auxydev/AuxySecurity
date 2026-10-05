@@ -144,12 +144,19 @@ def test_gui_callback_exceptions_are_logged(app):
 
 
 # ---------------- gorev: hata durumunda yeniden baslat ----------------
-def test_task_xml_restarts_on_failure():
-    xml = autostart.build_task_xml("PC\\kullanici", r"C:\x\pythonw.exe", r"C:\proje")
+def test_task_xml_has_repeating_trigger_with_ignore_new_not_restart_on_failure():
+    """GERCEK MAKINE BULGUSU: Gorev Zamanlayici "hata durumunda yeniden baslat" ayari, eylem hata koduyla cikinca
+    TETIKLENMIYOR (3 dk beklendi, 1 calisma). Bu yuzden tekrarlanan tetikleyici + IgnoreNew kullanilir."""
+    from datetime import datetime
+
+    xml = autostart.build_task_xml("PC\\kullanici", r"C:\x\pythonw.exe", r"C:\proje", now=datetime(2026, 10, 5, 12, 30, 0))
     root = ET.fromstring(xml.replace('encoding="UTF-16"', ""))
     ns = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
-    assert root.find(".//t:RestartOnFailure/t:Interval", ns).text == "PT1M"
-    assert root.find(".//t:RestartOnFailure/t:Count", ns).text == "3"
+    assert root.find(".//t:RestartOnFailure", ns) is None  # guvenilmeyen ayar yok
+    assert root.find(".//t:TimeTrigger/t:Repetition/t:Interval", ns).text == "PT10M"
+    assert root.find(".//t:TimeTrigger/t:StartBoundary", ns).text == "2026-10-05T12:30:00"
+    assert root.find(".//t:MultipleInstancesPolicy", ns).text == "IgnoreNew"  # calisirken cift ornek yok
+    assert root.find(".//t:LogonTrigger/t:Delay", ns).text == "PT30S"  # oturum acilisi tetigi korunur
 
 
 # ---------------- calisma kumesi / simge onbellegi ----------------

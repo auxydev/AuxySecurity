@@ -32,7 +32,7 @@ python scripts\measure_agent.py 30   # yalıtılmış ajan bellek/CPU ölçümü
 
 ## 4. Yapılanlar
 1. **Yakalanmamış istisna kancaları** (`core/crashlog.py`): ana iş parçacığı, diğer iş parçacıkları, `unraisable` ve Tk geri çağırmaları günlüğe yazılır. (M7'de izleme iş parçacığı sessizce ölmüştü; konsolsuz `pythonw`'da hata hiçbir yerde görünmüyordu.)
-2. **Çökme kurtarma:** Ajan çökerse nedeni günlüğe yazılır ve çıkış kodu ≠ 0 olur; başlangıç görevi XML'ine **"hata durumunda 1 dk sonra, 3 kez yeniden başlat"** eklendi.
+2. **Çökme kurtarma:** Ajan çökerse nedeni günlüğe yazılır ve çıkış kodu ≠ 0 olur. ~~Başlangıç görevine "hata durumunda yeniden başlat" eklendi~~ **DÜZELTME (M9, 2026-10-05): bu ayar gerçek makinede hata koduyla TETİKLENMİYOR** (3 dk beklendi, görev 1 kez çalıştı). Mekanizma M9'da değiştirildi: ajan içi yeniden başlatma denetçisi + görevde tekrarlanan tetikleyici (`IgnoreNew`); ikisi de doğrulandı. Bkz. [M09](M09-packaging.md).
 3. **Bellek:** Bekleyen ajan çalışma kümesini küçültür (`EmptyWorkingSet`) ve simgeleri bir kez çizip önbelleğe alır.
 4. **`auxy doctor`:** 15+ bağımsız kontrol (Python, bağımlılıklar, Defender, WMI, veri dizini, yapılandırma, yedek, **kasa anahtarı doğrulaması**, ajan, görev, sağ tık, **kurulum konumu riski**, günlükteki son hatalar, tarama kilidi). Hiçbir şeyi değiştirmez (kasa anahtarı bile üretmez); bir kontrol hata verirse doctor çökmez.
 5. **Güvenlik gözden geçirmesi** ([security-review.md](../security-review.md)): 17 tehdit maddesi; sonuç dosyası sertleştirme (sembolik bağlantı/hardlink/TOCTOU), kurulum konumu uyarıları, yüksek yetkili görev için onay, bağımlılık taraması.
@@ -55,7 +55,7 @@ python scripts\measure_agent.py 30   # yalıtılmış ajan bellek/CPU ölçümü
 | Sızıntı yok | ✔ 300 tur (35 sn): iş parçacığı sabit, RSS −0.3/+0.1 MB, handle +11 / +3. Tur başına ~117 ms |
 | Ajan, değişikliklerden sonra uçtan uca çalışıyor | ✔ gerçek ajan: izleme, olay aboneliği, ayar sinyali (0.11 sn), kapalıyken tarama yok, açınca var; boşta CPU %0.000 |
 | Yakalanmamış hata günlüğe düşer | ✔ iş parçacığı, ana iş parçacığı, finalizer, Tk; **gerçek alt süreçte** ajan çökmesi: çıkış kodu 1 + günlükte iz |
-| Görev XML'inde yeniden başlatma | ✔ XML doğrulandı; ⏳ **gerçek tetiklenme denenmedi** |
+| Görev XML'inde yeniden başlatma | ✘ **YANLIŞ İDDİA:** XML doğruydu ama Zamanlayıcı bu ayarı hata koduyla tetiklemiyor (M9'da gerçek testle ortaya çıktı, mekanizma değiştirildi) |
 | Sonuç dosyası saldırıları | ✔ **gerçek** sembolik bağlantı ve hardlink: reddedildi, hedef dosya değişmedi |
 | Bozuk dosyalar | ✔ vault.db, backup.json (2 biçim), config, geçmiş |
 | `doctor` | ✔ gerçek makinede 16 tamam / 2 uyarı / 0 hata; hiçbir şeyi değiştirmediği testle kanıtlı |
@@ -82,7 +82,7 @@ python scripts\measure_agent.py 30   # yalıtılmış ajan bellek/CPU ölçümü
 6. **Benim hatam:** ekran görüntüsü betiği (README çalışması) `ImageGrab` ile ekranı kopyalıyordu; uygulama penceresi tarayıcının arkasında kalınca **başka bir pencere (kişisel içerik)** yakalandı. Dosyalar anında silindi, hiçbir zaman commit edilmedi; tüm betikler `PrintWindow` ile yalnızca uygulama penceresini alan ve doğrulayan `scripts/_capture.py`'ye geçirildi. Daha önce commit'lenen tüm görüntüler piksel analiziyle kontrol edildi: yalnızca uygulama penceresi.
 
 ## 9. Bilinen sorunlar / Doğrulanmayanlar
-- **Görev Zamanlayıcı'nın yeniden başlatması gerçek ortamda denenmedi** (ajanı öldürüp 1 dk beklemek; yükseltilmiş ajan için ek UAC gerekir).
+- ~~Görev Zamanlayıcı'nın yeniden başlatması denenmedi~~ M9'da denendi ve **çalışmadığı** görüldü; düzeltildi (yukarıdaki not).
 - **VM'de kurulum/kaldırma yapılamadı;** yerine temiz sanal ortamda tekerlek kurulumu yapıldı. `cleanup`'ın başlangıç görevini kaldırma adımı sahtelerle (ve B01'de gerçek UAC ile) doğrulandı, uçtan uca gerçek `cleanup --remove-data` çalıştırılmadı (kullanıcı verisini silerdi).
 - **T1 (UAC kodu yazılabilir dizinden gelir) açık risk;** v1.0 paketiyle kapanacak. Bkz. [security-review.md](../security-review.md).
 - Çalışma kümesi küçültmesi yalnızca bellek *metriğini* düşürür (bölüm 5).

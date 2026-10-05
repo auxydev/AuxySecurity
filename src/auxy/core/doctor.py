@@ -45,6 +45,10 @@ def _check(name: str, fn: Callable[[], Check | list[Check]]) -> list[Check]:
 
 # ---------------- tek tek kontroller ----------------
 def check_python() -> Check:
+    if getattr(sys, "frozen", False):
+        from auxy import __version__
+
+        return Check("Sürüm", OK, f"AuxySecurity {__version__} (paketlenmiş, {Path(sys.executable).parent})")
     v = sys.version_info
     exe = sys.executable
     store = "WindowsApps" in exe
@@ -200,8 +204,9 @@ def check_autostart() -> list[Check]:
                          "Proje/Python taşındıysa: auxy autostart remove, sonra install"))
     if wd and not Path(wd.group(1)).exists():
         out.append(Check("Görev çalışma dizini", WARN, f"bulunamadı: {wd.group(1)}", "Görevi yeniden kur."))
-    if "RestartOnFailure" not in xml:
-        out.append(Check("Görev çökme kurtarma", WARN, "'hata durumunda yeniden başlat' yok", "Görevi yeniden kur."))
+    if "<Repetition>" not in xml:
+        out.append(Check("Görev çökme kurtarma", WARN, "tekrarlanan tetikleyici yok (ajan ölürse yeniden başlamaz)",
+                         "Görevi yeniden kur: auxy autostart remove, sonra install"))
     return out
 
 
@@ -251,11 +256,22 @@ def check_scan_lock() -> Check:
     return Check("Tarama kilidi", INFO, "bir tarama sürüyor")
 
 
+def check_legacy_data() -> Check:
+    from auxy.core import migrate
+
+    plan = migrate.pending_plan()
+    if plan is None:
+        return Check("Eski veri", INFO, "taşınacak eski (sanallaştırılmış) veri yok")
+    items = ", ".join(plan.to_copy)
+    return Check("Eski veri", WARN, f"Store Python veri dizininde taşınmamış veri var: {plan.source} ({items})",
+                 "auxy migrate-data --yes (eski veri silinmez, kopyalanır)")
+
+
 CHECKS: tuple[tuple[str, Callable], ...] = (
     ("python", check_python), ("deps", check_dependencies), ("admin", check_admin), ("defender", check_defender),
     ("mpcmdrun", check_mpcmdrun), ("data", check_data_dir), ("config", check_config), ("backup", check_backup),
     ("vault", check_vault), ("agent", check_agent), ("autostart", check_autostart), ("ctx", check_context_menu),
-    ("location", check_install_location), ("log", check_log), ("lock", check_scan_lock),
+    ("location", check_install_location), ("legacy", check_legacy_data), ("log", check_log), ("lock", check_scan_lock),
 )
 
 

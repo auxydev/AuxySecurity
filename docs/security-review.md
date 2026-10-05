@@ -47,7 +47,7 @@
 | T14 | **Tarama kilidi adı** (başka süreç mutex'i tutup taramayı engelleyebilir) | Düşük | ⚠ Sınır | Yalnızca hizmet reddi (kullanıcı kendi oturumunda); ölen sürecin kilidi devralınır |
 | T15 | **Bağımlılık açıkları** | Orta | ✔ Temiz | `pip-audit` (temiz kurulum): 7 bağımlılıkta bilinen açık **yok**; 12 bulgunun tamamı yalnızca `pip` aracında (uygulamayla dağıtılmaz) |
 | T16 | **Kaynak sızıntısı / uzun süre çalışma** | Düşük | ✔ Temiz | 300 yenileme turu: iş parçacığı sabit, bellek ±0.3 MB, handle +11 (önbellek); ajan 30 sn'de CPU %0.000 |
-| T17 | **Sessiz hata** (konsolsuz süreçte yakalanmamış istisna) | Orta | ✔ Kapalı | `threading.excepthook`, `sys.excepthook`, `unraisablehook`, Tk geri çağırma kancası → günlük; ajan çökerse çıkış kodu ≠ 0 ve Görev Zamanlayıcı yeniden başlatır |
+| T17 | **Sessiz hata** (konsolsuz süreçte yakalanmamış istisna) | Orta | ✔ Kapalı | `threading.excepthook`, `sys.excepthook`, `unraisablehook`, Tk geri çağırma kancası → günlük; ajan çökerse nedeni günlüğe yazılır; **Python istisnasında ajan içi denetçi yeniden başlatır, süreç ölümünde görevdeki tekrarlanan tetikleyici (10 dk, `IgnoreNew`) yeniden başlatır** (her ikisi gerçek makinede doğrulandı; ilk sürümdeki "hata durumunda yeniden başlat" ayarı Zamanlayıcı'da hata koduyla tetiklenmediği için bırakıldı) |
 
 ## 3. Bu inceleme sırasında yapılan sertleştirmeler
 1. Sonuç dosyası güvenli açış (bağlantı/hardlink/TOCTOU) + iki katmanlı savunma testleri
@@ -64,5 +64,5 @@
 - Kasa için isteğe bağlı parola ile ek koruma katmanı (T6'yı kısmen azaltır).
 
 ## 5. Doğrulanmayanlar
-- Görev Zamanlayıcı'nın "hata durumunda yeniden başlat" ayarının **gerçek tetiklenmesi** (XML'de doğrulandı; ajanı öldürüp 1 dk beklemek gerçek makinede denenmedi).
+- ~~Görev Zamanlayıcı yeniden başlatması~~ M9'da gerçek testle doğrulandı (mekanizma değişti, bkz. T17).
 - Çok kullanıcılı / alan (domain) ortamları, Windows 10.

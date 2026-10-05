@@ -22,6 +22,37 @@ def is_admin() -> bool:
         return False
 
 
+GUI_EXE, CLI_EXE = "AuxySecurity.exe", "auxy.exe"
+
+
+def is_frozen() -> bool:
+    """PyInstaller ile paketlenmis surum mu?"""
+    return bool(getattr(sys, "frozen", False))
+
+
+def install_dir() -> Path | None:
+    """Paketlenmis surumde uygulamanin kurulu oldugu klasor (gelistirmede None)."""
+    return Path(sys.executable).resolve().parent if is_frozen() else None
+
+
+def app_exe(windowless: bool = False) -> str:
+    """Uygulamayi baslatacak yurutulebilir: paketlenmiste AuxySecurity.exe (penceresiz) / auxy.exe (konsol),
+    gelistirmede pythonw/python."""
+    if is_frozen():
+        p = Path(sys.executable).resolve().parent / (GUI_EXE if windowless else CLI_EXE)
+        return str(p if p.exists() else sys.executable)
+    return python_exe(windowless)
+
+
+def app_args(args: list[str]) -> list[str]:
+    """`app_exe` icin arguman listesi: paketlenmiste dogrudan, gelistirmede `-m auxy` on ekiyle."""
+    return list(args) if is_frozen() else ["-m", "auxy", *args]
+
+
+def launch_params(args: list[str]) -> str:
+    return subprocess.list2cmdline(app_args(args))
+
+
 def python_exe(windowless: bool = False) -> str:
     exe = sys.executable
     if windowless:
@@ -37,9 +68,8 @@ def relaunch_as_admin(args: list[str], windowless: bool = False) -> bool:
     windowless=True: konsol penceresi acmadan (pythonw) calistirir (GUI icin).
     Kullanici UAC'yi reddederse False doner.
     """
-    params = subprocess.list2cmdline(["-m", "auxy", *args])
     rc = ctypes.windll.shell32.ShellExecuteW(
-        None, "runas", python_exe(windowless), params, None, SW_SHOWNORMAL
+        None, "runas", app_exe(windowless), launch_params(args), None, SW_SHOWNORMAL
     )
     return rc > 32
 
@@ -79,8 +109,8 @@ def run_elevated_and_wait(args: list[str], timeout_s: float = 120) -> int | None
     info.cbSize = ctypes.sizeof(info)
     info.fMask = SEE_MASK_NOCLOSEPROCESS
     info.lpVerb = "runas"
-    info.lpFile = python_exe(windowless=True)
-    info.lpParameters = subprocess.list2cmdline(["-m", "auxy", *args])
+    info.lpFile = app_exe(windowless=True)
+    info.lpParameters = launch_params(args)
     info.nShow = SW_HIDE
     if not ctypes.windll.shell32.ShellExecuteExW(ctypes.byref(info)):
         return None  # ERROR_CANCELLED dahil

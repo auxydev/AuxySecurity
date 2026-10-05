@@ -10,6 +10,7 @@ import os
 import subprocess
 import tempfile
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -18,6 +19,7 @@ from auxy.core.service import AuxyError
 
 TASK_NAME = "AuxySecurity"
 DELAY = "PT30S"  # acilisi yavaslatmamak icin 30 sn gecikme
+REPEAT = "PT10M"  # ajan olduyse (surec olumu/yerel cokme) en gec 10 dk sonra yeniden baslar; calisirken IgnoreNew yenisini engeller
 
 
 @dataclass(frozen=True)
@@ -26,7 +28,9 @@ class AutostartStatus:
     last_result: str = ""
 
 
-def build_task_xml(user: str, exe: str, workdir: str) -> str:
+def build_task_xml(user: str, exe: str, workdir: str, arguments: str = "-m auxy agent",
+                   now: datetime | None = None) -> str:
+    start = (now or datetime.now()).strftime("%Y-%m-%dT%H:%M:%S")
     return f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
@@ -38,6 +42,13 @@ def build_task_xml(user: str, exe: str, workdir: str) -> str:
       <UserId>{escape(user)}</UserId>
       <Delay>{DELAY}</Delay>
     </LogonTrigger>
+    <TimeTrigger>
+      <StartBoundary>{start}</StartBoundary>
+      <Repetition>
+        <Interval>{REPEAT}</Interval>
+      </Repetition>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
   </Triggers>
   <Principals>
     <Principal id="Author">
@@ -52,17 +63,13 @@ def build_task_xml(user: str, exe: str, workdir: str) -> str:
     <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
     <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
     <StartWhenAvailable>true</StartWhenAvailable>
-    <RestartOnFailure>
-      <Interval>PT1M</Interval>
-      <Count>3</Count>
-    </RestartOnFailure>
     <Enabled>true</Enabled>
     <Priority>7</Priority>
   </Settings>
   <Actions Context="Author">
     <Exec>
       <Command>{escape(exe)}</Command>
-      <Arguments>-m auxy agent</Arguments>
+      <Arguments>{escape(arguments)}</Arguments>
       <WorkingDirectory>{escape(workdir)}</WorkingDirectory>
     </Exec>
   </Actions>
@@ -91,7 +98,8 @@ def _schtasks(*args: str) -> subprocess.CompletedProcess:
 def install() -> None:
     if not system.is_admin():
         raise AuxyError("Gorevi kurmak icin yonetici yetkisi gerekir.")
-    xml = build_task_xml(_current_user(), system.python_exe(windowless=True), project_dir())
+    xml = build_task_xml(_current_user(), system.app_exe(windowless=True), project_dir(),
+                         system.launch_params(["agent"]))
     fd, path = tempfile.mkstemp(suffix=".xml")
     os.close(fd)
     try:

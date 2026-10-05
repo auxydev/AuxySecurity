@@ -236,7 +236,7 @@ class Agent:
     def open_gui(self, *_args) -> None:
         flags = subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS
         subprocess.Popen(
-            [system.python_exe(windowless=True), "-m", "auxy", "gui"],
+            [system.app_exe(windowless=True), *system.app_args(["gui"])],
             creationflags=flags, close_fds=True,
         )
 
@@ -249,12 +249,24 @@ class Agent:
 
     def run(self) -> int:
         threading.Thread(target=self._loop, daemon=True).start()
-        self.icon.run(setup=self._setup)  # ana is parcacigini bloke eder (mesaj dongusu)
+        try:
+            self.icon.run(setup=self._setup)  # ana is parcacigini bloke eder (mesaj dongusu)
+        finally:  # normal cikista da, istisnada da: arka plan bilesenlerini durdur (yeniden baslatmada sizinti olmasin)
+            self._stop.set()
+            self._wake.set()
+            self._config_waiter.wake()
+            self._helpers.stop_all()
+            try:
+                self.icon.stop()
+            except Exception:  # noqa: BLE001 - zaten durmus olabilir
+                pass
         return 0
 
 
 def run() -> int:
+    from auxy.agent import supervisor
+
     if not system.acquire_single_instance(system.agent_mutex_name()):
         return 0
     get_logger().info("Ajan basladi (pid=%s, yonetici=%s)", os.getpid(), system.is_admin())
-    return Agent().run()
+    return supervisor.supervise(lambda: Agent().run())  # istisnada surec ici yeniden baslatma

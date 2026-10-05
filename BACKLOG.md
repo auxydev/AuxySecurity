@@ -4,7 +4,6 @@ Kapsam dışı fikirler buraya girer; mevcut milestone genişlemez. (Güncel: 20
 
 ## Sırada (v1.0 yolunda)
 - **M9** Paketleme: `Program Files` kurulumu (T1 riskini kapatır), kurulum dosyası, imzalama, veri yolunu Store-sanallaştırmasından çıkarma + taşıma, kaldırıcı (`auxy cleanup` mantığı hazır), yükseltilmiş yardımcı alt komut listesini daraltma
-- Görev Zamanlayıcı yeniden başlatmasının gerçek tetiklenme testi
 
 ## Fikirler
 - YARA kural taraması

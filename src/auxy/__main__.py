@@ -407,6 +407,25 @@ def cmd_cleanup(args) -> int:
     return 0 if all(s.ok for s in steps) else 1
 
 
+def cmd_migrate_data(args) -> int:
+    from auxy.core import migrate
+
+    plan = migrate.pending_plan()
+    if plan is None:
+        print("Taşınacak eski veri yok.")
+        return 0
+    print(f"Eski veri: {plan.source}\nHedef    : {plan.target}")
+    print("Kopyalanacak:", ", ".join(plan.to_copy) or "-")
+    if plan.blocked:
+        print("Hedefte zaten var (dokunulmaz):", ", ".join(plan.blocked))
+    if not args.yes:
+        print("Uygulamak için --yes ekle (eski veri SİLİNMEZ, kopyalanır).")
+        return 0
+    for line in migrate.migrate(plan):
+        print(" -", line)
+    return 0
+
+
 def cmd_doctor(args) -> int:
     from auxy.core import doctor
 
@@ -508,6 +527,22 @@ def cmd_revert(args) -> int:
     return 0
 
 
+# Yukseltilmis YARDIMCI modunda (--result verilmis) calistirilmasina izin verilen alt komutlar. Yukseltme gerektiren
+# her islem buradan gecer; digerleri (gui, agent, scan, vault ...) yukseltilmis surecte calismayi REDDEDER.
+ELEVATED_ALLOWED = frozenset({
+    "set", "scan-cancel", "winsec-set", "exclusion", "tpm-info", "autostart", "defender-quarantine",
+    "firewall-rule", "revert-all",
+})
+
+
+def _enforce_elevated_allowlist(args) -> bool:
+    """Yukseltilmis (yonetici) yardimci surecte yalnizca izinli alt komutlar calisir (UAC onayinin kapsamini daraltir)."""
+    if getattr(args, "result", None) and system.is_admin() and args.command not in ELEVATED_ALLOWED:
+        print(f"HATA: '{args.command}' yukseltilmis modda calistirilamaz.", file=sys.stderr)
+        return False
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="auxy", description="AuxySecurity")
     parser.add_argument("--version", action="version", version=__version__)
@@ -607,6 +642,10 @@ def main(argv: list[str] | None = None) -> int:
     p_cl.add_argument("--force-vault", action="store_true", help="kasada dosya varken de veriyi sil (kalıcı kayıp!)")
     p_cl.set_defaults(func=cmd_cleanup)
 
+    p_mg = sub.add_parser("migrate-data", help="Store Python'un sanallaştırılmış eski veri dizininden gerçek dizine kopyala")
+    p_mg.add_argument("--yes", action="store_true", help="kopyalamayı uygula (eski veri silinmez)")
+    p_mg.set_defaults(func=cmd_migrate_data)
+
     p_doc = sub.add_parser("doctor", help="Ortam ve kurulum tanısı (hiçbir şeyi değiştirmez)")
     p_doc.add_argument("--json", action="store_true", help="makine okunur çıktı")
     p_doc.set_defaults(func=cmd_doctor)
@@ -626,7 +665,11 @@ def main(argv: list[str] | None = None) -> int:
     p_rev.add_argument("--pause", action="store_true", help=argparse.SUPPRESS)
     p_rev.set_defaults(func=cmd_revert)
 
+    if argv is None and len(sys.argv) == 1 and system.is_frozen():
+        argv = ["gui"]  # paketlenmis penceresiz exe: cift tiklayinca pencere acilir
     args = parser.parse_args(argv)
+    if not _enforce_elevated_allowlist(args):
+        return 4
     return args.func(args)
 
 

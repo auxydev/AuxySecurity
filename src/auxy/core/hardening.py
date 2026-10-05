@@ -50,7 +50,9 @@ def install_location_risk(code_dir: Path | None = None, python_dir: Path | None 
     """Uygulama kodu ve Python yorumlayicisi yalnizca-yonetici yazilabilir bir konumda mi?"""
     import auxy
 
-    code = Path(code_dir) if code_dir else Path(auxy.__file__).resolve().parent
+    frozen_dir = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else None
+    # paketlenmis surumde modul dosyalari yurutulebilirin yaninda (_internal) durur
+    code = Path(code_dir) if code_dir else (frozen_dir or Path(auxy.__file__).resolve().parent)
     py = Path(python_dir) if python_dir else Path(sys.executable).resolve().parent
     roots = _safe_roots()
     risky = [str(p) for p in (code, py) if not any(_under(p, r) for r in roots)]
