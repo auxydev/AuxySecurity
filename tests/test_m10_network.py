@@ -397,3 +397,60 @@ def test_nav_has_network_page_after_security(app):
     keys = [k for k, _ in gui.NAV]
     assert keys.index("network") == keys.index("security") + 1
     assert "network" in app.pages and dict(gui.NAV)["network"] == "Ağ güvenliği"
+
+
+def test_warp_messages_are_short_turkish_not_raw_cli_output(warp):
+    warp.fail = False
+    assert ns.warp_op("disconnect").message == "WARP bağlantısı kesildi."
+    assert ns.warp_op("protocol", "MASQUE").message == "Protokol MASQUE olarak ayarlandı."
+    warp.fail = True
+    long_err = "x" * 500 + "\nikinci satir\n" * 20
+    warp_fail = ns._short(long_err)
+    assert len(warp_fail) <= 140 and "\n" not in warp_fail and ns._short("\n\n  \n") == ""
+
+
+def test_page_polls_warp_until_connected(app, npage, monkeypatch):
+    from auxy.gui import network_page
+
+    monkeypatch.setattr(network_page, "WARP_POLL_MS", 20)
+    states = iter(["Connecting", "Connecting", "Connected", "Connected"])
+    last = {"s": "Connecting"}
+
+    def read():
+        last["s"] = next(states, "Connected")
+        return ns.WarpInfo(True, last["s"], "", "doh", "MASQUE", True)
+
+    monkeypatch.setattr(ns, "read_warp", read)
+    npage.warp_op("warp-connect")
+    assert pump(app, lambda: "WARP bağlı." in npage.message.cget("text"), timeout=8)
+    assert "Bağlı" in npage.warp_state.cget("text")
+
+
+def test_page_gives_up_polling_with_clear_message(app, npage, monkeypatch):
+    from auxy.gui import network_page
+
+    monkeypatch.setattr(network_page, "WARP_POLL_MS", 10)
+    monkeypatch.setattr(network_page, "WARP_POLL_MAX", 2)
+    monkeypatch.setattr(ns, "read_warp", lambda: ns.WarpInfo(True, "Connecting", "", "doh", "MASQUE", True))
+    npage._poll_warp("Connected", 2)
+    assert pump(app, lambda: "hâlâ" in npage.message.cget("text"), timeout=5)
+
+
+def test_theme_applied_and_assets_render(app):
+    import customtkinter as ctk
+
+    from auxy.agent.icon import make_banner_icon
+    from auxy.gui import theme
+    from auxy.gui import viewmodel as vm
+
+    assert ctk.ThemeManager.theme["CTkFont"]["family"] == "Segoe UI"
+    assert ctk.ThemeManager.theme["CTkFrame"]["corner_radius"] == 14
+    for lvl in (vm.OK, vm.WARN, vm.CRIT, None):
+        assert make_banner_icon(lvl, 64).size == (64, 64)
+    assert theme.logo_image(32) is not None and theme.status_image(vm.OK) is not None
+    assert theme.icon("nope") is None
+    # kenar cubugu: etkin sayfa vurgulanir
+    app.show("network")
+    assert app.nav_buttons["network"].cget("fg_color") == theme.ACCENT
+    assert app.nav_buttons["scan"].cget("fg_color") == "transparent"
+    app.show("dashboard")

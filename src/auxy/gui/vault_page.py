@@ -119,7 +119,7 @@ class VaultPage(ctk.CTkFrame):
         self.info_lbl.grid(row=1, column=0, sticky="w")
         self.status = ctk.CTkLabel(self, text="", anchor="w", justify="left", wraplength=640)
         self.status.grid(row=2, column=0, sticky="w", pady=(6, 6))
-        self.list = ctk.CTkScrollableFrame(self, corner_radius=12)
+        self.list = ctk.CTkScrollableFrame(self, corner_radius=14, border_width=1)
         self.list.grid(row=3, column=0, sticky="nsew")
         self.list.columnconfigure(0, weight=1)
         self.keys_frame = keys
@@ -313,7 +313,7 @@ class DefenderView(ctk.CTkFrame):
         ctk.CTkButton(bar, text="Etkin tehditleri temizle", width=170, command=self.clean).pack(side="left", padx=6)
         ctk.CTkButton(bar, text="Çevrimdışı tarama…", width=150, fg_color="#d64545", hover_color="#b53a3a",
                       command=self.offline_scan).pack(side="right")
-        self.list = ctk.CTkScrollableFrame(self, corner_radius=12)
+        self.list = ctk.CTkScrollableFrame(self, corner_radius=14, border_width=1)
         self.list.grid(row=1, column=0, sticky="nsew")
         self.list.columnconfigure(0, weight=1)
         ctk.CTkLabel(self.list, text="Listelemek için 'Listele'ye bas (yönetici izni ister).",

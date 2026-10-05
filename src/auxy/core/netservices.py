@@ -390,12 +390,20 @@ def warp_op(op: str, value: str = "", cli: Path | None = None) -> NetResult:
         proc = _run_warp(args, timeout=30, cli=cli)
     except subprocess.TimeoutExpired:
         return NetResult(False, "WARP yanıt vermedi (zaman aşımı).")
-    out = (proc.stdout or proc.stderr or "").strip().splitlines()
-    text = out[-1] if out else ""
     if proc.returncode != 0:
-        return NetResult(False, f"WARP hata verdi: {text or proc.returncode}")
-    return NetResult(True, text or "Tamam.", True)
+        return NetResult(False, f"WARP hata verdi: {_short(proc.stderr or proc.stdout) or proc.returncode}")
+    done = {"connect": "WARP bağlantı isteği gönderildi.", "disconnect": "WARP bağlantısı kesildi.",
+            "protocol": f"Protokol {value} olarak ayarlandı.", "mode": f"Kip {WARP_MODES.get(value, value)} olarak ayarlandı."}
+    return NetResult(True, done[op], True)  # warp-cli'nin uzun/ingilizce ciktisi gosterilmez
 
+
+def _short(text: str, limit: int = 140) -> str:
+    """Birden cok satirli arac ciktisindan tek, kisa, anlamli satir (ilk bos olmayan)."""
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if line:
+            return line if len(line) <= limit else line[: limit - 1] + "…"
+    return ""
 
 def install_warp(timeout_s: float = 900) -> NetResult:
     """WARP kurulu degilse resmi paketi winget ile sessizce kurar (internet gerekir; MSI UAC isteyebilir)."""

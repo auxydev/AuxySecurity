@@ -35,7 +35,7 @@ def format_product(p: winsec.SecurityProduct) -> str:
 
 class Card(ctk.CTkFrame):
     def __init__(self, master, title: str, row: int):
-        super().__init__(master, corner_radius=12)
+        super().__init__(master, corner_radius=14, border_width=1)
         self.grid(row=row, column=0, sticky="ew", pady=(0, 12), padx=(0, 6))
         self.columnconfigure(0, weight=1)
         ctk.CTkLabel(self, text=title, font=ctk.CTkFont(size=15, weight="bold"), anchor="w").grid(

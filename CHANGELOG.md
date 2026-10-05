@@ -1,5 +1,14 @@
 # Sürüm notları
 
+## 1.1.1 — 2026-10-05
+
+### Düzeltilen
+- **WARP 'Bağlanıyor' takılması:** bağlan/kes sonrası durum artık oturana kadar (en çok ~30 sn) izlenir; sayfa bağlanma sırasında açılsa da izler.
+- **WARP işlem mesajları:** `warp-cli`'nin uzun, İngilizce çıktısı yerine kısa Türkçe mesaj ("WARP bağlantısı kesildi."); hata mesajı tek satıra kısaltılır.
+
+### Yeni görünüm
+- Modern tema: Segoe UI, yuvarlak kartlar, mavi vurgu, açık/koyu mod uyumlu; koyu kenar çubuğu (logo, simgeler, yönetici durumu, sürüm); pano bandında durum kalkanı.
+
 ## 1.1.0 — 2026-10-05
 
 ### Yeni

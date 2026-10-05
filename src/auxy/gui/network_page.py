@@ -24,6 +24,7 @@ WARP_STATUS_TR = {"Connected": ("● Bağlı", GOOD), "Disconnected": ("● Bağ
                   "Connecting": ("◌ Bağlanıyor…", ORANGE), "Unable": ("● Bağlanamıyor", BAD)}
 WARP_MODE_BACK = {v: k for k, v in netservices.WARP_MODES.items()}
 WARP_PROTO_BACK = {v: k for k, v in netservices.WARP_PROTOCOLS.items()}
+WARP_POLL_MS, WARP_POLL_MAX = 1500, 20  # ~30 sn
 
 
 class NetworkPage(ctk.CTkFrame):
@@ -128,6 +129,7 @@ class NetworkPage(ctk.CTkFrame):
         self.blocks_cache: list[dict] = []
         self.gdpi: netservices.ServiceInfo | None = None
         self.warp: netservices.WarpInfo | None = None
+        self._poll_token: object | None = None
 
     # ---- mesaj ----
     def say(self, text: str, error: bool = False) -> None:
@@ -196,13 +198,15 @@ class NetworkPage(ctk.CTkFrame):
         self.gdpi_op("gdpi-auto" if self.gdpi_auto.get() else "gdpi-manual")
 
     # ---- WARP ----
-    def _show_warp(self, res, exc) -> None:
+    def _show_warp(self, res, exc, polling: bool = False) -> None:
         if exc is not None:
             self.warp_state.configure(text="● Okunamadı", text_color=BAD)
             self.warp_detail.configure(text=str(exc))
             return
         w = res
         self.warp = w
+        if w.status == "Connecting" and not polling:  # sayfa baglanma sirasinda acildi: durum oturana kadar izle
+            self._poll_warp("Connected")
         for b in (self.warp_on_btn, self.warp_off_btn):
             b.configure(state="normal" if w.installed else "disabled")
         if w.installed:
@@ -230,7 +234,38 @@ class NetworkPage(ctk.CTkFrame):
 
     def warp_op(self, op: str, value: str = "") -> None:
         self.say("WARP güncelleniyor…")
-        self.app.worker.submit(lambda: actions.net_op(op, value), lambda r, e: self._net_done(r, e))
+        expect = {"warp-connect": "Connected", "warp-disconnect": "Disconnected"}.get(op)
+
+        def done(res, exc):
+            self._net_done(res, exc)
+            if expect and exc is None and res.ok:
+                self._poll_warp(expect)  # baglanma/kesilme birkac saniye surer: durum oturana kadar izle
+
+        self.app.worker.submit(lambda: actions.net_op(op, value), done)
+
+    def _poll_warp(self, expect: str, left: int = WARP_POLL_MAX) -> None:
+        """Durum `expect` olana (ya da sure dolana) kadar WARP'i kisa araliklarla okur."""
+        self._poll_token = token = object()  # yeni bir izleme eskisini iptal eder
+
+        def tick():
+            if self._poll_token is not token:
+                return
+
+            def got(res, exc):
+                if self._poll_token is not token:
+                    return
+                self._show_warp(res, exc, polling=True)
+                if exc is None and res.status == expect:
+                    self.say("WARP bağlı." if expect == "Connected" else "WARP bağlantısı kesildi.")
+                elif left > 0 and exc is None:
+                    self._poll_warp(expect, left - 1)
+                else:
+                    self.say(f"WARP hâlâ '{WARP_STATUS_TR.get(res.status, (res.status,))[0].lstrip('●◌ ')}' durumunda.",
+                             error=True)
+
+            self.app.worker.submit(netservices.read_warp, got)
+
+        self.after(WARP_POLL_MS, tick)
 
     def _set_protocol(self, shown: str) -> None:
         proto = WARP_PROTO_BACK[shown]

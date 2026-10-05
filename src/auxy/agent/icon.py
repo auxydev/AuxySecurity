@@ -88,6 +88,26 @@ def make_logo(size: int = 256) -> Image.Image:
     return img.resize((size, size), Image.LANCZOS)
 
 
+@lru_cache(maxsize=8)
+def make_banner_icon(level: str | None, size: int = 128) -> Image.Image:
+    """Pano bandi (renkli zemin) icin BEYAZ kalkan + durum renginde isaret: tik / unlem / carpi."""
+    img = Image.new("RGBA", (_BIG, _BIG), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.polygon(_shield_points(10, 246, 30, 226), fill=(255, 255, 255, 255))
+    color = LEVEL_COLORS.get(level, GRAY) + (255,)
+    if level == vm.OK:
+        d.line([(76, 130), (112, 166), (180, 88)], fill=color, width=26, joint="curve")
+    elif level == vm.WARN:
+        d.line([(128, 72), (128, 150)], fill=color, width=26)
+        d.ellipse((113, 168, 143, 198), fill=color)
+    elif level == vm.CRIT:
+        d.line([(88, 86), (168, 166)], fill=color, width=26)
+        d.line([(168, 86), (88, 166)], fill=color, width=26)
+    else:
+        d.ellipse((112, 112, 144, 144), fill=color)
+    return img.resize((size, size), Image.LANCZOS)
+
+
 @lru_cache(maxsize=32)
 def make_icon(level: str | None, count: int = 0) -> Image.Image:
     """Simge (seviye, sayi) basina BIR KEZ cizilir (her yenilemede yeniden cizim/bellek hareketi olmasin).

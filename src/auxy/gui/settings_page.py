@@ -95,7 +95,7 @@ class SettingsPage(ctk.CTkFrame):
     # ---- yapi ----
     @staticmethod
     def _card(master, title: str, row: int) -> ctk.CTkFrame:
-        c = ctk.CTkFrame(master, corner_radius=12)
+        c = ctk.CTkFrame(master, corner_radius=14, border_width=1)
         c.grid(row=row, column=0, sticky="ew", pady=(0, 12), padx=(0, 6))
         c.columnconfigure(0, weight=1)
         ctk.CTkLabel(c, text=title, font=ctk.CTkFont(size=15, weight="bold"), anchor="w").grid(

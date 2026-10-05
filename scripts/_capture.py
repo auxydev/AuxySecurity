@@ -49,7 +49,7 @@ def grab_window(tk_window) -> Image.Image:
 def looks_like_app(img: Image.Image) -> bool:
     """Sol kenar cubugunun alt kismi duz renk mi? (baska pencere/ekran icerigi degil, uygulama)"""
     w, h = img.size
-    side = img.crop((0, int(h * 0.45), min(150, w), h - 20))
+    side = img.crop((0, int(h * 0.68), min(150, w), int(h * 0.86)))  # navigasyonun altindaki bos duz alan
     colors = side.getcolors(maxcolors=100000)
     return bool(colors) and max(colors)[0] / (side.size[0] * side.size[1]) > 0.9
 

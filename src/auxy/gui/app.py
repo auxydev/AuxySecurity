@@ -11,13 +11,16 @@ from auxy.core.settings import SETTINGS
 from auxy.core.settings import TOGGLE_KEYS as TOGGLES
 from auxy.gui import viewmodel as vm
 from auxy.gui.scan_page import ScanPage
+from auxy.gui import theme
 from auxy.gui.network_page import NetworkPage
 from auxy.gui.security_page import SecurityPage
 from auxy.gui.settings_page import SettingsPage
 from auxy.gui.vault_page import VaultPage
 from auxy.gui.worker import Worker
 
-COLORS = {vm.OK: "#2e9e5b", vm.WARN: "#d9932b", vm.CRIT: "#d64545"}
+theme.apply()  # pencere/widget olusturulmadan ONCE: modern tema (renk, yazi tipi, yuvarlak kartlar)
+
+COLORS = {vm.OK: theme.OK_BG, vm.WARN: theme.WARN_BG, vm.CRIT: theme.BAD_BG}
 AUTO_REFRESH_MS = 30_000
 
 VALUE_TR = {"on": "Açık", "off": "Kapalı", "audit": "Denetim", "basic": "Temel",
@@ -42,18 +45,20 @@ class DashboardPage(ctk.CTkFrame):
         self.app = app
         self.columnconfigure(0, weight=1)
 
-        self.banner = ctk.CTkFrame(self, corner_radius=12)
-        self.banner.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        self.banner = ctk.CTkFrame(self, corner_radius=18, border_width=0)
+        self.banner.grid(row=0, column=0, sticky="ew", pady=(0, 14))
+        self.banner.columnconfigure(1, weight=1)
+        self.banner_icon = ctk.CTkLabel(self.banner, text="", image=theme.status_image(None, 0, 64), width=72)
+        self.banner_icon.grid(row=0, column=0, rowspan=2, padx=(18, 4), pady=16)
         self.banner_title = ctk.CTkLabel(
-            self.banner, text="Durum okunuyor…", font=ctk.CTkFont(size=22, weight="bold"),
-            text_color="white",
+            self.banner, text="Durum okunuyor…", font=ctk.CTkFont(size=24, weight="bold"),
+            text_color="white", anchor="w",
         )
-        self.banner_title.pack(anchor="w", padx=18, pady=(14, 2))
+        self.banner_title.grid(row=0, column=1, sticky="w", padx=(8, 18), pady=(18, 0))
         self.banner_reasons = ctk.CTkLabel(
-            self.banner, text="", justify="left", anchor="w", text_color="white", wraplength=620
+            self.banner, text="", justify="left", anchor="w", text_color="white", wraplength=560
         )
-        self.banner_reasons.pack(anchor="w", padx=18, pady=(0, 14))
-
+        self.banner_reasons.grid(row=1, column=1, sticky="w", padx=(8, 18), pady=(0, 16))
         self.admin_row = ctk.CTkFrame(self, fg_color="transparent")
         self.admin_row.grid(row=1, column=0, sticky="ew", pady=(0, 8))
         self.admin_label = ctk.CTkLabel(
@@ -68,7 +73,7 @@ class DashboardPage(ctk.CTkFrame):
         self.admin_btn.pack(side="right")
 
         # Salt-okunur durum satirlari
-        info = ctk.CTkFrame(self, corner_radius=12)
+        info = ctk.CTkFrame(self, corner_radius=14, border_width=1)
         info.grid(row=2, column=0, sticky="ew", pady=(0, 12))
         info.columnconfigure(1, weight=1)
         self.info_values: dict[str, ctk.CTkLabel] = {}
@@ -87,7 +92,7 @@ class DashboardPage(ctk.CTkFrame):
         # Hizli anahtarlar
         ctk.CTkLabel(self, text="Hızlı anahtarlar", font=ctk.CTkFont(size=15, weight="bold"),
                      anchor="w").grid(row=3, column=0, sticky="w", pady=(0, 4))
-        sw = ctk.CTkFrame(self, corner_radius=12)
+        sw = ctk.CTkFrame(self, corner_radius=14, border_width=1)
         sw.grid(row=4, column=0, sticky="ew")
         sw.columnconfigure(0, weight=1)
         self.switches: dict[str, ctk.CTkSwitch] = {}
@@ -120,6 +125,7 @@ class DashboardPage(ctk.CTkFrame):
         self.banner.configure(fg_color=COLORS[health.level])
         self.banner_title.configure(text=health.title)
         self.banner_reasons.configure(text="\n".join(f"• {r}" for r in health.reasons))
+        self.banner_icon.configure(image=theme.status_image(health.level, health.badge, 64))
 
         iv = self.info_values
         maps = SETTINGS["maps"].name_of(st.prefs["MAPSReporting"])
@@ -189,8 +195,8 @@ class App(ctk.CTk, _DnD):
         super().__init__()
         self.dnd_ready = self._setup_dnd()
         self.title("AuxySecurity")
-        self.geometry("920x620")
-        self.minsize(820, 560)
+        self.geometry("1000x680")
+        self.minsize(900, 600)
         self.columnconfigure(1, weight=1)
         self.rowconfigure(0, weight=1)
 
@@ -198,21 +204,42 @@ class App(ctk.CTk, _DnD):
         self.admin = system.is_admin()
         self.last_status: defender.DefenderStatus | None = None
 
-        sidebar = ctk.CTkFrame(self, width=170, corner_radius=0)
+        sidebar = ctk.CTkFrame(self, width=224, corner_radius=0, fg_color=theme.SIDEBAR, border_width=0)
         sidebar.grid(row=0, column=0, sticky="nsew")
-        ctk.CTkLabel(sidebar, text="AuxySecurity", font=ctk.CTkFont(size=18, weight="bold")).pack(
-            padx=16, pady=(18, 18))
+        sidebar.grid_propagate(False)
+        sidebar.rowconfigure(2, weight=1)
+        brand = ctk.CTkFrame(sidebar, fg_color="transparent")
+        brand.grid(row=0, column=0, sticky="ew", padx=16, pady=(22, 20))
+        ctk.CTkLabel(brand, text="", image=theme.logo_image(38)).pack(side="left")
+        names = ctk.CTkFrame(brand, fg_color="transparent")
+        names.pack(side="left", padx=(10, 0))
+        ctk.CTkLabel(names, text="AuxySecurity", text_color="white", anchor="w",
+                     font=ctk.CTkFont(size=17, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(names, text="Windows Güvenlik paneli", text_color=theme.SIDEBAR_MUTED, anchor="w",
+                     font=ctk.CTkFont(size=11)).pack(anchor="w")
+        nav = ctk.CTkFrame(sidebar, fg_color="transparent")
+        nav.grid(row=1, column=0, sticky="ew", padx=12)
         self.nav_buttons: dict[str, ctk.CTkButton] = {}
         for key, label in NAV:
-            b = ctk.CTkButton(sidebar, text=label, anchor="w", fg_color="transparent",
-                              text_color=("gray10", "gray90"),
-                              hover_color=("gray75", "gray30"),
+            b = ctk.CTkButton(nav, text=f"  {label}", anchor="w", height=42, corner_radius=10,
+                              fg_color="transparent", text_color=theme.SIDEBAR_TEXT,
+                              hover_color=theme.SIDEBAR_HOVER, font=ctk.CTkFont(size=14),
+                              image=theme.icon(key, 20, theme.SIDEBAR_TEXT), compound="left",
                               command=lambda k=key: self.show(k))
-            b.pack(fill="x", padx=10, pady=2)
+            b.pack(fill="x", pady=2)
             self.nav_buttons[key] = b
+        foot = ctk.CTkFrame(sidebar, fg_color="transparent")
+        foot.grid(row=3, column=0, sticky="ew", padx=18, pady=(8, 18))
+        from auxy import __version__
 
+        self.admin_pill = ctk.CTkLabel(
+            foot, text="●  Yönetici" if self.admin else "●  Standart kullanıcı", anchor="w",
+            text_color="#4ade80" if self.admin else theme.SIDEBAR_MUTED, font=ctk.CTkFont(size=12))
+        self.admin_pill.pack(anchor="w")
+        ctk.CTkLabel(foot, text=f"Sürüm {__version__}", text_color=theme.SIDEBAR_MUTED, anchor="w",
+                     font=ctk.CTkFont(size=11)).pack(anchor="w", pady=(2, 0))
         content = ctk.CTkFrame(self, fg_color="transparent")
-        content.grid(row=0, column=1, sticky="nsew", padx=20, pady=18)
+        content.grid(row=0, column=1, sticky="nsew", padx=26, pady=22)
         content.columnconfigure(0, weight=1)
         content.rowconfigure(0, weight=1)
 
@@ -295,7 +322,11 @@ class App(ctk.CTk, _DnD):
     def show(self, key: str) -> None:
         self.pages[key].tkraise()
         for k, b in self.nav_buttons.items():
-            b.configure(fg_color=("gray78", "gray28") if k == key else "transparent")
+            active = k == key
+            b.configure(fg_color=theme.ACCENT if active else "transparent",
+                        hover_color=theme.ACCENT_HOVER if active else theme.SIDEBAR_HOVER,
+                        text_color="white" if active else theme.SIDEBAR_TEXT,
+                        image=theme.icon(k, 20, "#ffffff" if active else theme.SIDEBAR_TEXT))
         if key == "log":
             self.log_page.reload()
         elif key == "scan":
