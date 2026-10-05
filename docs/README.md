@@ -17,11 +17,13 @@ yapılanlar, kararlar, **kabul kriterleri ve gerçek sonuçlar**, performans, **
 | [M06 – Windows Güvenlik](milestones/M06-windows-security.md) | Güvenlik duvarı, SmartScreen, cihaz güvenliği, dışlamalar |
 | [M07 – Gerçek zamanlı yardımcılar](milestones/M07-realtime-helpers.md) | Klasör izleme, olay aboneliği, USB, zamanlama, sağ tık |
 | [B01 – Eksik tamamlama](milestones/B01-eksik-tamamlama.md) | M0–M7'de ertelenenlerin tamamlanması ve bulunan hatalar |
+| [M08 – Sağlamlaştırma](milestones/M08-hardening.md) | Çökme kurtarma, bellek, `doctor`, güvenlik gözden geçirmesi, kapsam, temiz kurulum |
 
 Şablon: [milestones/_TEMPLATE.md](milestones/_TEMPLATE.md)
 
 ## Diğer
 
+- [Güvenlik gözden geçirmesi](security-review.md) (tehdit modeli, 17 madde, kalan riskler)
 - [Mimari](architecture.md) (taslak) · [Mimari kararlar](decisions/ADR-0001-wmi-vs-powershell.md)
 - [Kapsamlı plan](../PLAN.md) · [Backlog](../BACKLOG.md)
 - Ekran görüntüleri: `screenshots/` (README için temiz, örnek veriyle) · `milestones/img/` (milestone kanıtları)

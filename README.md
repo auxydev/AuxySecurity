@@ -7,7 +7,8 @@ Hafif bir tray ajanı · şifreli karantina kasası · tarama yöneticisi · gü
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Platform](https://img.shields.io/badge/Windows-11-0078D4?logo=windows11&logoColor=white)
-![Tests](https://img.shields.io/badge/testler-276%20geçiyor-2e9e5b)
+![Tests](https://img.shields.io/badge/testler-366%20geçiyor-2e9e5b)
+![Kapsam](https://img.shields.io/badge/kapsam-%25_86-2e9e5b)
 ![Durum](https://img.shields.io/badge/durum-geliştirme%20(v0.x)-d9932b)
 
 <img src="docs/screenshots/pano.png" alt="AuxySecurity panosu" width="720">
@@ -53,6 +54,7 @@ odaklı bir **kontrol paneli** sunar:
 | **Defender karantinası** | Defender'ın kendi karantinasını listele ve geri yükle, etkin tehditleri temizle, (onaylı) çevrimdışı tarama |
 | **Güvenlik** | Güvenlik duvarı profilleri ve gelen bağlantı eylemi, kural listesi (pasifleştir / geri aç), program engelleme, SmartScreen, çekirdek yalıtımı (bellek bütünlüğü), Secure Boot / TPM / exploit protection durumu, Defender dışlamaları |
 | **Otomasyon** | İndirilenler klasörünü izleme, Defender tehdit bildirimleri (olay günlüğü aboneliği), USB tarama, haftalık zamanlanmış tarama (boştayken), Windows açılışında başlatma |
+| **Tanı ve bakım** | `auxy doctor` (ortam/kurulum tanısı, hiçbir şeyi değiştirmez), `auxy cleanup` (kaldırma temizliği), `auxy revert-all` |
 | **CLI** | Her şeyin komut satırı karşılığı (`auxy status`, `auxy scan quick`, `auxy vault add …`) |
 
 Hepsi **geri alınabilir** olacak şekilde tasarlandı: bir ayarı ilk değiştirdiğinde orijinal değeri yedeklenir
@@ -127,6 +129,7 @@ değişmez ve anahtar gerçek duruma döner.
 | `auxy firewall-rule list` · `disable <ad>` · `block <program>` | Güvenlik duvarı kuralları |
 | `auxy exclusion list path` · `add path C:\proje` | Defender dışlamaları |
 | `auxy autostart install` · `context-menu install` | Başlangıç görevi, sağ tık menüsü |
+| `auxy doctor` · `cleanup` · `revert-all` | Tanı, kaldırma temizliği, tüm ayarları geri alma |
 
 Tüm komutlar için `python -m auxy --help`.
 
@@ -176,7 +179,7 @@ Bunlar bilinçli ve belgelenmiş sınırlardır:
 - **Defender karantinasından kalıcı silme** yok (MpCmdRun sunmuyor); alternatif klasöre geri yüklemede Defender öğeyi listede tutar.
 - **Python Store sürümü:** Uygulama verisi Python paketinin özel alanında durur; paketi kaldırmak kasayı da siler. Anahtar yedeğini mutlaka al.
 - **Anahtar Windows kullanıcısına bağlı (DPAPI):** Profil kaybolursa yedek olmadan kasa açılamaz.
-- **UAC ile çalışan kod yazılabilir dizinlerden gelir:** Geliştirme kurulumunda `.venv` ve `src` kullanıcı tarafından yazılabilir; kurulu (imzalı, `Program Files`) sürüm bu riski kapatacak (bkz. [yol haritası](#yol-haritası)).
+- **UAC ile çalışan kod yazılabilir dizinlerden gelir:** Geliştirme kurulumunda `.venv` ve `src` kullanıcı tarafından yazılabilir; bu hesapta çalışan zararlı bir program yönetici yetkisi kazanabilir. `auxy doctor` ve Ayarlar bunu uyarır, yüksek yetkili başlangıç görevi kurarken onay ister. Kurulu (imzalı, `Program Files`) sürüm riski kapatacak. Ayrıntı: [güvenlik gözden geçirmesi](docs/security-review.md).
 - **Doğrulanmayanlar:** Gerçek USB, haftalık tetiklenme, oturum açılışı, bildirim balonu ve çevrimdışı tarama (yeniden başlatır) gerçek ortamda denenmedi. Ayrıntı: [B01](docs/milestones/B01-eksik-tamamlama.md).
 
 ## Performans
@@ -185,7 +188,7 @@ Gerçek makinede ölçüldü (Windows 11):
 
 | Ölçüm | Sonuç |
 |---|---|
-| Tray ajanı, izleme + olay aboneliği açık | **CPU %0.000** (30 sn), RAM ≈ 43 MB çalışma kümesi |
+| Tray ajanı, izleme + olay aboneliği açık | **CPU %0.000** (30 sn); RAM: çalışma kümesi **≈ 3 MB**, özel bellek ≈ 24 MB |
 | Pencere açılışı | ~0.35–0.9 sn |
 | Defender durumu okuma (WMI) | ~100 ms (PowerShell: ~600 ms) |
 | 150 MB dosyayı kasaya alma (şifrele + doğrula + sil) | 0.7 sn |
@@ -194,7 +197,8 @@ Gerçek makinede ölçüldü (Windows 11):
 ## Geliştirme
 
 ```powershell
-pytest -q                           # 276 test, ~16 sn (GUI testleri dahil)
+pytest -q                           # 366 test, ~19 sn (GUI testleri dahil), kapsam %86
+python -m auxy doctor               # ortam tanısı
 python scripts\unused_imports.py src
 ```
 
@@ -212,7 +216,7 @@ AuxySecurity/
 │  ├─ agent/     tray ajanı, klasör izleme, olay aboneliği, USB, zamanlayıcı
 │  ├─ gui/       pencere, sayfalar (pano, güvenlik, tarama, karantina, ayarlar)
 │  └─ __main__.py   CLI
-├─ tests/        pytest (276 test)
+├─ tests/        pytest (366 test)
 ├─ scripts/      gerçek makine testleri, ölçümler, ekran görüntüsü üretimi
 ├─ docs/         milestone dokümanları, mimari kararlar, ekran görüntüleri
 ├─ PLAN.md       kapsamlı proje planı
@@ -232,8 +236,8 @@ AuxySecurity/
 | [M6](docs/milestones/M06-windows-security.md) | Güvenlik duvarı, SmartScreen, cihaz güvenliği | ✔ |
 | [M7](docs/milestones/M07-realtime-helpers.md) | Gerçek zamanlı yardımcılar | ✔ |
 | [B01](docs/milestones/B01-eksik-tamamlama.md) | Eski milestone eksiklerinin tamamlanması | ✔ |
-| M8 | Sağlamlaştırma: RAM, çökme kurtarma, güvenlik gözden geçirmesi, kapsam ölçümü | 🔄 sırada |
-| M9 | Paketleme (kurulum dosyası), imzalama, v1.0 | ⏳ |
+| [M8](docs/milestones/M08-hardening.md) | Sağlamlaştırma: RAM, çökme kurtarma, güvenlik gözden geçirmesi, `doctor`, kapsam %86 | ✔ |
+| M9 | Paketleme (Program Files, kurulum dosyası), imzalama, v1.0 | 🔄 sırada |
 
 Fikirler ve ertelenenler: [BACKLOG.md](BACKLOG.md).
 

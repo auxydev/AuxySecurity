@@ -3,8 +3,8 @@
 Kapsam dışı fikirler buraya girer; mevcut milestone genişlemez. (Güncel: 2026-10-05)
 
 ## Sırada (v1.0 yolunda)
-- **M8** Sağlamlaştırma: ajan RAM'i < 40 MB, çökme kurtarma, "sessiz iş parçacığı ölümü" taraması, güvenlik gözden geçirmesi, kapsam ölçümü
-- **M9** Paketleme: kurulum dosyası, imzalama, veri yolunu Store-sanallaştırmasından çıkarma + taşıma, kaldırıcı
+- **M9** Paketleme: `Program Files` kurulumu (T1 riskini kapatır), kurulum dosyası, imzalama, veri yolunu Store-sanallaştırmasından çıkarma + taşıma, kaldırıcı (`auxy cleanup` mantığı hazır), yükseltilmiş yardımcı alt komut listesini daraltma
+- Görev Zamanlayıcı yeniden başlatmasının gerçek tetiklenme testi
 
 ## Fikirler
 - YARA kural taraması
