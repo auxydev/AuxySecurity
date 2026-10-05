@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 from PIL import Image, ImageDraw
 
 from auxy.gui import viewmodel as vm
@@ -11,7 +13,9 @@ UNKNOWN_COLOR = (128, 128, 128)
 SIZE = 64
 
 
+@lru_cache(maxsize=8)
 def make_icon(level: str | None) -> Image.Image:
+    """Simge seviye basina BIR KEZ cizilir (her yenilemede yeniden cizim/bellek hareketi olmasin)."""
     color = LEVEL_COLORS.get(level, UNKNOWN_COLOR)
     img = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)

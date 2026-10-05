@@ -1,58 +1,59 @@
-"""M3 olcumu: calisan 'auxy agent' sureclerinin bellek (RSS) ve CPU kullanimini olcer.
+"""Ajan bellek (RSS / ozel bellek) ve CPU olcumu. Kendi baslattigi, YALITILMIS ajani olcer
+(ayri AUXY_INSTANCE + gecici AUXY_HOME): calisan gercek ajana dokunmaz ve onu olcmez.
 
-Kullanim: python scripts/measure_agent.py [saniye=30] [--spawn]
-  --spawn: ajani kendisi baslatir ve sonunda kapatir.
+Kullanim: python scripts/measure_agent.py [saniye=30] [--idle-after=N]
 """
 
+import os
 import subprocess
 import sys
+import tempfile
 import time
 
 import psutil
 
 seconds = int(next((a for a in sys.argv[1:] if a.isdigit()), 30))
-spawned = None
-if "--spawn" in sys.argv:
-    exe = sys.executable.replace("python.exe", "pythonw.exe")
-    spawned = subprocess.Popen([exe, "-m", "auxy", "agent"])
-    time.sleep(8)  # acilis + ilk durum okuma
+env = os.environ.copy()
+env["AUXY_INSTANCE"] = "_measure"
+env["AUXY_HOME"] = tempfile.mkdtemp(prefix="auxy-measure-")
+exe = sys.executable.replace("python.exe", "pythonw.exe")
+proc = subprocess.Popen([exe, "-m", "auxy", "agent"], env=env)
+time.sleep(10)  # acilis + ilk durum okuma + (varsa) calisma kumesi kucultme
 
-
-def agent_procs():
-    out = []
-    for p in psutil.process_iter(["pid", "name", "cmdline"]):
-        cl = " ".join(p.info["cmdline"] or [])
-        if "-m auxy agent" in cl:
-            out.append(p)
-    return out
-
-
-procs = agent_procs()
-if not procs:
-    print("ajan sureci bulunamadi")
+try:
+    root = psutil.Process(proc.pid)
+    tree = [root] + root.children(recursive=True)
+except psutil.NoSuchProcess:
+    print("ajan baslamadi")
     sys.exit(1)
 
-for p in procs:
+for p in tree:
     p.cpu_percent(None)
-t0 = time.time()
 time.sleep(seconds)
-elapsed = time.time() - t0
 
-total_rss = total_cpu = 0.0
-for p in procs:
+total_ws = total_priv = total_cpu = 0.0
+real = None
+for p in tree:
     try:
-        rss = p.memory_info().rss / 1e6
-        cpu = p.cpu_percent(None)  # son cagridan beri, tek cekirdek yuzdesi
-        total_rss += rss
+        mi = p.memory_full_info()
+        ws, priv = mi.rss / 1e6, mi.private / 1e6 if hasattr(mi, "private") else mi.uss / 1e6
+        cpu = p.cpu_percent(None)
+        print(f"pid {p.pid:>6} {p.name():<14} calisma kumesi {ws:6.1f} MB | ozel bellek {priv:6.1f} MB | CPU {cpu:5.2f}%")
+        total_ws += ws
+        total_priv += priv
         total_cpu += cpu
-        print(f"pid {p.pid:>6} {p.name():<14} RSS {rss:6.1f} MB  CPU {cpu:5.2f}%  "
-              f"admin-benzeri: {p.username()}")
+        if "3.12" in p.name() or p.pid != proc.pid:
+            real = (ws, priv)
     except psutil.NoSuchProcess:
         pass
 ncpu = psutil.cpu_count()
-print(f"TOPLAM RSS {total_rss:.1f} MB | CPU {total_cpu:.2f}% (tek cekirdek) = "
-      f"{total_cpu / ncpu:.3f}% (tum sistem, {ncpu} mantiksal cekirdek) | olcum {elapsed:.0f} sn")
+print(f"TOPLAM (launcher dahil): calisma kumesi {total_ws:.1f} MB | ozel {total_priv:.1f} MB | "
+      f"CPU {total_cpu:.3f}% tek cekirdek ({total_cpu / ncpu:.3f}% sistem) | {seconds} sn")
+if real:
+    print(f"ASIL SUREC (launcher haric): calisma kumesi {real[0]:.1f} MB | ozel bellek {real[1]:.1f} MB")
 
-if spawned:
-    for p in agent_procs():
+for p in reversed(tree):
+    try:
         p.terminate()
+    except psutil.NoSuchProcess:
+        pass

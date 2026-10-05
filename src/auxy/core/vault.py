@@ -263,7 +263,15 @@ class Vault:
             return False
 
     def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self._db, timeout=10)
+        db = sqlite3.connect(self._db, timeout=10)
+        try:
+            db.execute("SELECT count(*) FROM sqlite_master").fetchone()  # bozuk dosyayi burada yakala
+        except sqlite3.DatabaseError as exc:
+            db.close()
+            raise VaultError(
+                "Kasa veritabanı (vault.db) bozuk ya da okunamıyor. Şifreli dosyalar (.auxq) diskte duruyor "
+                f"ama kayıt listesi okunamıyor: {exc}") from exc
+        return db
 
     def _blob(self, item_id: str) -> Path:
         return self.root / f"{item_id}.auxq"

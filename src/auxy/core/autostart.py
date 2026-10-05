@@ -52,6 +52,10 @@ def build_task_xml(user: str, exe: str, workdir: str) -> str:
     <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
     <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
     <StartWhenAvailable>true</StartWhenAvailable>
+    <RestartOnFailure>
+      <Interval>PT1M</Interval>
+      <Count>3</Count>
+    </RestartOnFailure>
     <Enabled>true</Enabled>
     <Priority>7</Priority>
   </Settings>

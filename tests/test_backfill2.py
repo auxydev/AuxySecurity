@@ -122,6 +122,9 @@ def test_settings_switch_calls_autostart_and_reflects_real_state(app, monkeypatc
 
     monkeypatch.setattr(actions, "autostart_op", fake_op)
     monkeypatch.setattr(autostart, "is_installed", lambda: state["installed"])
+    from auxy.gui import settings_page
+
+    monkeypatch.setattr(settings_page.messagebox, "askyesno", lambda *a, **k: True)  # konum riski onayi: evet
     page.autostart_sw.select()
     page._toggle_autostart()
     assert pump(app, lambda: calls == ["install"] and page.message.cget("text") == "tamam")
@@ -136,6 +139,9 @@ def test_settings_switch_reverts_when_uac_denied(app, monkeypatch):
     page = app.pages["settings"]
     monkeypatch.setattr(actions, "autostart_op", lambda op: actions.ActionResult(False, "Yönetici izni verilmedi."))
     monkeypatch.setattr(autostart, "is_installed", lambda: False)  # gercek durum: kurulu degil
+    from auxy.gui import settings_page
+
+    monkeypatch.setattr(settings_page.messagebox, "askyesno", lambda *a, **k: True)
     page.autostart_sw.select()
     page._toggle_autostart()
     assert pump(app, lambda: "izni verilmedi" in page.message.cget("text"))
@@ -208,3 +214,35 @@ def test_get_many_reads_only_requested_keys():
 
     got = winsec.WinSecService(Env()).get_many(["fw_public"])
     assert got == {"fw_public": "on"} and Env.calls == ["public"]
+
+
+def test_autostart_risk_dialog_shown_in_user_writable_location_and_no_means_no(app, monkeypatch):
+    """Yuksek yetkili gorev kullanici-yazilabilir konumdan kurulurken uyari sorulur; HAYIR -> hicbir sey kurulmaz."""
+    from auxy.core import hardening
+    from auxy.gui import settings_page
+
+    page = app.pages["settings"]
+    asked, ops = [], []
+    monkeypatch.setattr(hardening, "install_location_risk",
+                        lambda *a, **k: hardening.LocationRisk(hardening.WARN, "risk", (r"C:\Users\x\proje",)))
+    monkeypatch.setattr(settings_page.messagebox, "askyesno", lambda title, msg, **k: asked.append(msg) or False)
+    monkeypatch.setattr(actions, "autostart_op", lambda op: ops.append(op) or actions.ActionResult(True, "x", True))
+    monkeypatch.setattr(autostart, "is_installed", lambda: False)
+    page.autostart_sw.select()
+    page._toggle_autostart()
+    app.update()
+    assert asked and r"C:\Users\x\proje" in asked[0] and "YÜKSEK YETKİYLE" in asked[0]
+    assert ops == [] and page.autostart_sw.get() == 0  # reddedildi: kurulmadi, anahtar eski halinde
+
+
+def test_autostart_no_dialog_when_location_is_safe(app, monkeypatch):
+    from auxy.core import hardening
+
+    page = app.pages["settings"]
+    ops = []
+    monkeypatch.setattr(hardening, "install_location_risk", lambda *a, **k: hardening.LocationRisk(hardening.OK, "guvenli"))
+    monkeypatch.setattr(actions, "autostart_op", lambda op: ops.append(op) or actions.ActionResult(True, "tamam", True))
+    monkeypatch.setattr(autostart, "is_installed", lambda: True)
+    page.autostart_sw.select()
+    page._toggle_autostart()  # diyalog acilirsa conftest'teki koruma testi HATAYA dusurur
+    assert pump(app, lambda: ops == ["install"])

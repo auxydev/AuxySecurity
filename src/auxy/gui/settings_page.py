@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
 
 from auxy import __version__
-from auxy.core import actions, autostart, contextmenu, system
+from auxy.core import actions, autostart, contextmenu, hardening, system
 from auxy.core import config as cfgmod
 
 MUTED = ("gray40", "gray60")
@@ -173,6 +173,17 @@ class SettingsPage(ctk.CTkFrame):
     # ---- baslangic gorevi ----
     def _toggle_autostart(self) -> None:
         op = "install" if self.autostart_sw.get() else "remove"
+        if op == "install":
+            risk = hardening.install_location_risk()
+            if risk.risky and not messagebox.askyesno(
+                    "Güvenlik uyarısı",
+                    "Başlangıç görevi YÜKSEK YETKİYLE (yönetici) çalışır, ama uygulama dosyaları kullanıcının "
+                    "yazabildiği bir dizinde duruyor:\n\n" + "\n".join(risk.paths) +
+                    "\n\nBu hesapta çalışan zararlı bir program bu dosyaları değiştirip yönetici yetkisi kazanabilir. "
+                    "Yalnızca kendi kullandığın bir bilgisayarda kabul edilebilir.\n\nYine de kurulsun mu?",
+                    icon="warning"):
+                self.load_into_widgets()  # onaylanmadi: anahtar gercek duruma doner
+                return
         self.say("Başlangıç görevi güncelleniyor… (yönetici izni istenebilir)")
         self.app.worker.submit(lambda: actions.autostart_op(op), self._autostart_done)
 

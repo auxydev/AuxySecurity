@@ -65,6 +65,7 @@ class Agent:
         self.icon.icon = self._make_icon(self.health.level if self.health else None)
         self.icon.title = tooltip(self.health)
         self.icon.update_menu()
+        system.trim_working_set()  # bekleme oncesi: calisma kumesini kucult (bkz. system.trim_working_set)
 
     def _loop(self) -> None:
         self.refresh()
@@ -199,6 +200,7 @@ class Agent:
         icon.visible = True
         self._helpers.apply(cfgmod.load())
         threading.Thread(target=self._config_loop, daemon=True, name="auxy-config").start()
+        system.trim_working_set()
 
     def _quick_scan_action(self, icon, item):
         self._start(self._quick_scan)

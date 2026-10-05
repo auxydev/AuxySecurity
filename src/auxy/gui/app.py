@@ -231,6 +231,12 @@ class App(ctk.CTk, _DnD):
         self.refresh()
         self.after(AUTO_REFRESH_MS, self._auto_refresh)
 
+    def report_callback_exception(self, exc, val, tb) -> None:
+        """Tk olay isleyicilerindeki istisnalar (varsayilan: stderr; pythonw'de kaybolur) gunluge yazilir."""
+        from auxy.core.log import get_logger
+
+        get_logger().error("GUI olay isleyicisi istisnasi", exc_info=(exc, val, tb))
+
     # ---- surukle-birak ----
     def _setup_dnd(self) -> bool:
         if TkinterDnD is None:

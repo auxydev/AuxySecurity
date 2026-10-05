@@ -210,6 +210,19 @@ class ScanLock:
             self._h = None
 
 
+def trim_working_set() -> bool:
+    """Bu surecin calisma kumesini kucultur (EmptyWorkingSet): bekleyen ajan icin sayfalar bellekten
+    cikarilir, gerektikce geri yuklenir. OZEL (gercek) bellegi azaltmaz; Gorev Yoneticisi'ndeki "Bellek" ve
+    calisma kumesi metriklerini dusurur. Basarisizlik zararsizdir."""
+    try:
+        k, psapi = ctypes.windll.kernel32, ctypes.windll.psapi
+        k.GetCurrentProcess.restype = wintypes.HANDLE
+        psapi.EmptyWorkingSet.argtypes = [wintypes.HANDLE]
+        return bool(psapi.EmptyWorkingSet(k.GetCurrentProcess()))
+    except (AttributeError, OSError):
+        return False
+
+
 def confirm_dialog(text: str, title: str = "AuxySecurity") -> bool:
     """Evet/Hayir kutusu (GUI penceresi olmadan, tray icin). Evet -> True. Uyari simgeli, en ustte."""
     MB_YESNO, MB_ICONWARNING, MB_TOPMOST, IDYES = 0x4, 0x30, 0x40000, 6

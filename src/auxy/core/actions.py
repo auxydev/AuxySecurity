@@ -35,10 +35,11 @@ def result_path_allowed(path: str) -> bool:
 def write_result(path: str, ok: bool, message: str, changed: bool = False, data=None) -> None:
     if not result_path_allowed(path):
         raise ValueError("Gecersiz sonuc dosyasi yolu")
-    Path(path).write_text(
-        json.dumps({"ok": ok, "message": message, "changed": changed, "data": data}),
-        encoding="utf-8",
-    )
+    payload = json.dumps({"ok": ok, "message": message, "changed": changed, "data": data}).encode("utf-8")
+    from auxy.core import hardening
+
+    with hardening.open_result_file(path) as f:  # baglanti/hardlink/TOCTOU saldirilarina karsi guvenli acis
+        f.write(payload)
 
 
 def run_elevated(args: list[str], denied_message: str = "Yönetici izni verilmedi.",

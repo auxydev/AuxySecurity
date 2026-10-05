@@ -23,6 +23,25 @@ def gui_root(tmp_path_factory):
     mp.undo()
 
 
+@pytest.fixture(autouse=True)
+def no_real_dialogs(monkeypatch):
+    """Testte GERCEK bir diyalog (messagebox/filedialog) acilirsa test HATA verir; sessizce takilmaz ya da
+    kullanicinin ekraninda pencere acmaz. Diyalog gereken testler kendi sahtesini monkeypatch ile koyar."""
+    import tkinter.filedialog as fd
+    import tkinter.messagebox as mb
+
+    def forbid(name):
+        def _f(*a, **k):
+            raise AssertionError(f"Testte GERCEK diyalog acildi: {name} (monkeypatch ile sahtele)")
+        return _f
+
+    for n in ("askyesno", "askyesnocancel", "askokcancel", "askretrycancel", "askquestion",
+              "showinfo", "showwarning", "showerror"):
+        monkeypatch.setattr(mb, n, forbid(n))
+    for n in ("askopenfilename", "askopenfilenames", "asksaveasfilename", "askdirectory"):
+        monkeypatch.setattr(fd, n, forbid(n))
+
+
 @pytest.fixture
 def app(gui_root):
     """Her test icin: pencere + tarama sayfasi durumunu geri alir."""

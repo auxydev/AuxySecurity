@@ -149,3 +149,4 @@ def test_tooltip():
     assert tray.tooltip(None) == "AuxySecurity – Durum okunamadı"
     assert tray.tooltip(vm.Health(vm.OK, "Cihazın korunuyor")).endswith("Cihazın korunuyor")
     assert len(tray.tooltip(vm.Health(vm.OK, "x" * 500))) <= 127
+

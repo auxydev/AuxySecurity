@@ -46,7 +46,10 @@ def cmd_status(_args) -> int:
 
 
 def cmd_gui(_args) -> int:
+    from auxy.core import crashlog
     from auxy.gui.app import run  # gec import: CLI komutlari GUI kutuphanesini yuklemesin
+
+    crashlog.install("pencere")
 
     run()
     return 0
@@ -385,10 +388,32 @@ def cmd_firewall_rule(args) -> int:
     return 0
 
 
+def cmd_doctor(args) -> int:
+    from auxy.core import doctor
+
+    results = doctor.run_checks()
+    if args.json:
+        import json as _json
+
+        print(_json.dumps([r.to_dict() for r in results], ensure_ascii=False, indent=2))
+    else:
+        print(doctor.format_report(results))
+    return 1 if doctor.summarize(results)[2] else 0
+
+
 def cmd_agent(_args) -> int:
+    from auxy.core import crashlog
+    from auxy.core.log import get_logger
+
+    crashlog.install("ajan")
     from auxy.agent.tray import run
 
-    return run()
+    try:
+        return run()
+    except Exception as exc:  # ajan beklenmedik sekilde coktu: nedeni gunluge yaz, cikis kodu != 0
+        # (Gorev Zamanlayici "hata durumunda yeniden baslat" ayariyla ajani yeniden baslatir)
+        get_logger().critical("AJAN COKTU", exc_info=(type(exc), exc, exc.__traceback__))
+        return 1
 
 
 def cmd_autostart(args) -> int:
@@ -406,6 +431,12 @@ def cmd_autostart(args) -> int:
     early = _elevate_or_fail(args, tail)
     if early is not None:
         return early
+    if args.action == "install":
+        from auxy.core import hardening
+
+        risk = hardening.install_location_risk()
+        if risk.risky:
+            print("UYARI: " + risk.detail + "\n       " + "; ".join(risk.paths), file=sys.stderr)
     res = actions.autostart_op(args.action)  # yonetici oldugumuz icin dogrudan calisir
     _report(args, res.ok, res.message, res.changed)
     print(("" if res.ok else "HATA: ") + res.message, file=None if res.ok else sys.stderr)
@@ -546,6 +577,10 @@ def main(argv: list[str] | None = None) -> int:
     p_fr.add_argument("value", nargs="?", help="disable/enable: kural adı; block/unblock: program yolu (unblock: kural adı da olur)")
     p_fr.add_argument("--result", help=argparse.SUPPRESS)
     p_fr.set_defaults(func=cmd_firewall_rule)
+
+    p_doc = sub.add_parser("doctor", help="Ortam ve kurulum tanısı (hiçbir şeyi değiştirmez)")
+    p_doc.add_argument("--json", action="store_true", help="makine okunur çıktı")
+    p_doc.set_defaults(func=cmd_doctor)
 
     sub.add_parser("agent", help="Tray ajanini baslat").set_defaults(func=cmd_agent)
 

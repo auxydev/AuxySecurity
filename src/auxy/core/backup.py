@@ -8,15 +8,36 @@ from __future__ import annotations
 
 import json
 import os
+import time
 
 from auxy.core import paths
 
 
+def _quarantine_corrupt() -> None:
+    """Bozuk yedek dosyasini SILMEDEN kenara alir (yeni degisiklikler eski kayitlari sessizce ezmesin)."""
+    src = paths.backup_file()
+    dest = src.with_name(f"backup.json.bozuk-{int(time.time())}")
+    try:
+        os.replace(src, dest)
+        from auxy.core.log import get_logger
+
+        get_logger().warning("backup.json bozuktu; kenara alindi: %s", dest.name)
+    except OSError:
+        pass
+
+
 def load() -> dict:
     try:
-        return json.loads(paths.backup_file().read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
+        data = json.loads(paths.backup_file().read_text(encoding="utf-8"))
+    except FileNotFoundError:
         return {}
+    except json.JSONDecodeError:
+        _quarantine_corrupt()
+        return {}
+    if not isinstance(data, dict):  # gecerli JSON ama beklenen sekilde degil: bozuk say
+        _quarantine_corrupt()
+        return {}
+    return data
 
 
 def _write(data: dict) -> None:
