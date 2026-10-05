@@ -9,7 +9,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from PIL import ImageGrab
+import sys as _sys
+from pathlib import Path
+
+_sys.path.insert(0, str(Path(__file__).parent))
+from _capture import save_window  # noqa: E402
 
 from auxy.core import threats
 from auxy.gui import app as gui
@@ -40,8 +44,7 @@ steps = []
 
 def shot(name):
     a.update_idletasks()
-    x, y, w, h = a.winfo_rootx(), a.winfo_rooty(), a.winfo_width(), a.winfo_height()
-    ImageGrab.grab(bbox=(x, y, x + w, y + h)).save(f"{prefix}-{name}.png")
+    save_window(a, Path(f"{prefix}-{name}.png"))  # PrintWindow: ekrani kopyalamaz
 
 
 def rows():

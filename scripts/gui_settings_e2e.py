@@ -13,7 +13,11 @@ home.mkdir(parents=True, exist_ok=True)
 os.environ["AUXY_HOME"] = str(home)
 os.environ["AUXY_INSTANCE"] = "_settingstest"
 
-from PIL import ImageGrab  # noqa: E402
+import sys as _sys2
+from pathlib import Path as _P
+
+_sys2.path.insert(0, str(_P(__file__).parent))
+from _capture import save_window  # noqa: E402
 
 from auxy.core import config as cfgmod  # noqa: E402
 from auxy.core import contextmenu  # noqa: E402
@@ -52,8 +56,7 @@ def step2():
     page._toggle_context()
     log.append(f"sag tik (kapat) kurulu: {contextmenu.is_installed()}")
     a.update_idletasks()
-    x, y, w, h = a.winfo_rootx(), a.winfo_rooty(), a.winfo_width(), a.winfo_height()
-    ImageGrab.grab(bbox=(x, y, x + w, y + h)).save(sys.argv[2])
+    save_window(a, Path(sys.argv[2]))  # PrintWindow: ekrani kopyalamaz
     print("\n".join(log))
     a.destroy()
 

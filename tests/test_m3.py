@@ -96,7 +96,7 @@ def test_result_roundtrip_json(tmp_path):
 
 # ---- autostart ----
 def test_task_xml_is_valid_and_has_required_properties():
-    xml = autostart.build_task_xml("PC\\kagan", r"C:\x\pythonw.exe", r"C:\proj & co")
+    xml = autostart.build_task_xml("PC\\kullanici", r"C:\x\pythonw.exe", r"C:\proj & co")
     root = ET.fromstring(xml.replace('encoding="UTF-16"', ""))  # parse icin
     ns = {"t": "http://schemas.microsoft.com/windows/2004/02/mit/task"}
     assert root.find(".//t:RunLevel", ns).text == "HighestAvailable"

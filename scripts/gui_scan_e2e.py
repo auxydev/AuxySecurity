@@ -5,7 +5,11 @@ Kullanim: python scripts/gui_scan_e2e.py <taranacak_klasor> <cikti.png>
 
 import sys
 
-from PIL import ImageGrab
+import sys as _sys
+from pathlib import Path
+
+_sys.path.insert(0, str(Path(__file__).parent))
+from _capture import save_window  # noqa: E402
 
 from auxy.core import scan
 from auxy.gui import app as gui
@@ -35,8 +39,7 @@ def poll():
 
 def finish():
     a.update_idletasks()
-    x, y, w, h = a.winfo_rootx(), a.winfo_rooty(), a.winfo_width(), a.winfo_height()
-    ImageGrab.grab(bbox=(x, y, x + w, y + h)).save(out)
+    save_window(a, Path(out))  # PrintWindow: ekrani kopyalamaz
     log.append(f"durum: {page.status.cget('text')}")
     log.append(f"butonlar tekrar acik: {page.start_buttons[0].cget('state')}, "
                f"iptal: {page.cancel_btn.cget('state')}")

@@ -16,8 +16,8 @@ REAL_SLEEP = time.sleep
 REAL_OUTPUT = r"""The following items are quarantined:
 
 ThreatName = Virus:DOS/EICAR_Test_File
-      file:C:\Users\kagan\AppData\Local\Temp\scantest\eicar-test.txt quarantined at 4.10.2026 19:54:32 (UTC)
-      file:C:\Users\kagan\AppData\Local\Temp\scantest\eicar-2.txt quarantined at 4.10.2026 19:58:12 (UTC)
+      file:C:\Users\ornek\AppData\Local\Temp\scantest\eicar-test.txt quarantined at 4.10.2026 19:54:32 (UTC)
+      file:C:\Users\ornek\AppData\Local\Temp\scantest\eicar-2.txt quarantined at 4.10.2026 19:58:12 (UTC)
 
 ThreatName = Trojan:Win32/Sahte
       file:D:\İndirilenler\Türkçe Klasör\kötü.exe quarantined at 5.10.2026 09:00:00 (UTC)
@@ -91,7 +91,7 @@ def test_list_items_and_error():
 
 def test_restore_builds_args_and_verifies():
     mp = FakeMp()
-    target = r"C:\Users\kagan\AppData\Local\Temp\scantest\eicar-test.txt"
+    target = r"C:\Users\ornek\AppData\Local\Temp\scantest\eicar-test.txt"
     res = dq.restore(target, run=mp)
     assert res.ok and res.changed and "yeniden karantinaya" in res.message
     assert ["-Restore", "-FilePath", target] in mp.calls
@@ -116,14 +116,14 @@ def test_restore_rejects_unknown_path_and_bad_input():
 
 
 def test_restore_invalid_target_dir(tmp_path):
-    t = r"C:\Users\kagan\AppData\Local\Temp\scantest\eicar-test.txt"
+    t = r"C:\Users\ornek\AppData\Local\Temp\scantest\eicar-test.txt"
     for bad in ("goreli", str(tmp_path / "yok")):
         with pytest.raises(dq.DefenderQuarantineError, match="Hedef klasör"):
             dq.restore(t, bad, run=FakeMp())
 
 
 def test_restore_failure_and_not_applied(tmp_path):
-    t = r"C:\Users\kagan\AppData\Local\Temp\scantest\eicar-test.txt"
+    t = r"C:\Users\ornek\AppData\Local\Temp\scantest\eicar-test.txt"
     with pytest.raises(dq.DefenderQuarantineError, match="uygulanmadı"):
         dq.restore(t, run=FakeMp(restore_works=False))  # orijinal konum: hala listede, dosya yok
     with pytest.raises(dq.DefenderQuarantineError, match="hedefte bulunamadı"):

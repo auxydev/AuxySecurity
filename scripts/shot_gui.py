@@ -7,7 +7,10 @@ import sys
 import time
 
 import psutil
-from PIL import ImageGrab
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from _capture import save_window  # noqa: E402
 
 from auxy.gui import app as gui
 
@@ -24,8 +27,7 @@ print(f"pencere hazir: {(time.perf_counter() - t0) * 1000:.0f} ms")
 
 def finish():
     a.update_idletasks()
-    x, y, w, h = a.winfo_rootx(), a.winfo_rooty(), a.winfo_width(), a.winfo_height()
-    ImageGrab.grab(bbox=(x, y, x + w, y + h)).save(out)
+    save_window(a, Path(out))  # PrintWindow: ekrani kopyalamaz, baska pencere goruntuye girmez
     print(f"RSS: {psutil.Process().memory_info().rss / 1e6:.0f} MB, admin={a.admin}")
     print(f"ilk veri: {a.last_status is not None}")
     a.destroy()

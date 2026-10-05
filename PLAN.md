@@ -3,6 +3,17 @@
 > Kişisel Windows Security (Defender) kontrol paneli + hafif tarayıcı + karantina aracı.
 > Dil: Python 3.12+ · Hedef: Windows 11 · Metodoloji: Sürekli Prototipleme + Milestone dokümantasyonu
 
+## Durum (2026-10-05)
+
+Bu belge **başlangıç planıdır**; gerçekleşen durum için [docs/README.md](docs/README.md).
+
+| Milestone | Durum | Plandan sapma |
+|---|---|---|
+| M0–M7 | ✔ tamamlandı (prototip + doküman + test) | Gerçek zamanlı koruma ve bulut koruma yazımı Windows tarafından engelleniyor; "koruma duraklat" bu yüzden yapılamadı. Exploit protection geri alınamaz olduğu için salt-okunur |
+| B01 | ✔ eksik tamamlama | M0–M7'de ertelenenler: süreçler arası kilit, sürükle-bırak, Defender karantinası, güvenlik duvarı kuralları, kasa anahtarı yedeği … |
+| M8 | 🔄 sırada | – |
+| M9 | ⏳ | – |
+
 ---
 
 ## 1. Vizyon ve Dürüst Kapsam

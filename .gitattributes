@@ -1,0 +1,6 @@
+# Satir sonlari: depoda LF; Windows'ta "LF will be replaced by CRLF" uyarilari kalksin
+* text=auto eol=lf
+*.png binary
+*.ico binary
+*.bat text eol=crlf
+*.cmd text eol=crlf

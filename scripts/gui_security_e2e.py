@@ -5,7 +5,11 @@ Kullanim: python scripts/gui_security_e2e.py <cikti.png>
 
 import sys
 
-from PIL import ImageGrab
+import sys as _sys
+from pathlib import Path
+
+_sys.path.insert(0, str(Path(__file__).parent))
+from _capture import save_window  # noqa: E402
 
 from auxy.core import winsec
 from auxy.gui import app as gui
@@ -37,8 +41,7 @@ def check_on():
     log.append(f"anahtar acildi -> kayit={svc.get_all()['smartscreen_store']} | mesaj: {page.message.cget('text')}")
     svc.revert() if winsec.backup.load().get("ws:smartscreen_store", "yok") != "yok" else None
     a.update_idletasks()
-    x, y, w, h = a.winfo_rootx(), a.winfo_rooty(), a.winfo_width(), a.winfo_height()
-    ImageGrab.grab(bbox=(x, y, x + w, y + h)).save(sys.argv[1])
+    save_window(a, Path(sys.argv[1]))  # PrintWindow: ekrani kopyalamaz
     log.append(f"son: {svc.get_all()['smartscreen_store']} yedek={winsec.backup.load()}")
     print("\n".join(log))
     a.destroy()
