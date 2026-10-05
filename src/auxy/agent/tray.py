@@ -23,7 +23,11 @@ VALUE_TR = {"on": "Açık", "off": "Kapalı", "audit": "Denetim", "basic": "Teme
 
 
 def tooltip(health: vm.Health | None) -> str:
-    return "AuxySecurity – " + (health.title if health else "Durum okunamadı")[:100]
+    if health is None:
+        return "AuxySecurity – Durum okunamadı"
+    kind = "kritik sorun" if health.crit_count else "uyarı"
+    extra = f" ({health.badge} {kind})" if health.badge else ""
+    return ("AuxySecurity – " + health.title + extra)[:120]
 
 
 class Agent:
@@ -62,7 +66,8 @@ class Agent:
         except Exception as exc:
             self._log.info("guvenlik duvari durumu okunamadi: %s", exc)
             self.fw = {}
-        self.icon.icon = self._make_icon(self.health.level if self.health else None)
+        self.icon.icon = self._make_icon(self.health.level if self.health else None,
+                                         self.health.badge if self.health else 0)
         self.icon.title = tooltip(self.health)
         self.icon.update_menu()
         system.trim_working_set()  # bekleme oncesi: calisma kumesini kucult (bkz. system.trim_working_set)

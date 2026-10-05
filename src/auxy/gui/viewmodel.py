@@ -17,6 +17,13 @@ class Health:
     level: str
     title: str
     reasons: list[str] = field(default_factory=list)
+    crit_count: int = 0  # tray rozeti: kritik sorun sayisi
+    warn_count: int = 0  # kritik olmayan sorun sayisi
+
+    @property
+    def badge(self) -> int:
+        """Rozette gosterilecek sayi: kritik varsa kritik sayisi, yoksa kritik olmayan sayisi."""
+        return self.crit_count or self.warn_count
 
 
 def signature_age_days(status: DefenderStatus, now: datetime | None = None) -> int | None:
@@ -48,7 +55,7 @@ def evaluate(status: DefenderStatus, now: datetime | None = None) -> Health:
         warn.append("Tamper Protection kapalı.")
 
     if crit:
-        return Health(CRIT, "Cihazın korunmuyor", crit + warn)
+        return Health(CRIT, "Cihazın korunmuyor", crit + warn, len(crit), len(warn))
     if warn:
-        return Health(WARN, "Dikkat edilmesi gerekenler var", warn)
+        return Health(WARN, "Dikkat edilmesi gerekenler var", warn, 0, len(warn))
     return Health(OK, "Cihazın korunuyor", ["Tüm temel korumalar açık ve güncel."])

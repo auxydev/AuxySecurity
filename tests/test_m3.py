@@ -1,4 +1,4 @@
-import json
+﻿import json
 import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -116,11 +116,40 @@ def test_install_requires_admin(monkeypatch):
 
 
 # ---- tray ----
-def test_icon_colors_per_level():
+def _near(px, rgb, tol=12):
+    return all(abs(a - b) <= tol for a, b in zip(px[:3], rgb, strict=True))
+
+
+def test_icon_sizes_and_shield_colors():
     for level in (vm.OK, vm.WARN, vm.CRIT, None):
-        img = tray_icon.make_icon(level)
-        assert img.size == (64, 64)
-        assert img.getpixel((8, 32))[:3] == tray_icon.LEVEL_COLORS.get(level, tray_icon.UNKNOWN_COLOR)
+        assert tray_icon.make_icon(level).size == (64, 64)
+    assert _near(tray_icon.make_icon(vm.OK).getpixel((9, 28)), tray_icon.GREEN)   # saglikli: yesil kalkan
+    assert _near(tray_icon.make_icon(None).getpixel((9, 28)), tray_icon.GRAY)     # bilinmiyor: gri
+
+
+def test_icon_badge_color_depends_on_severity():
+    # rozet sag ustte (merkez ~ (46, 18)); kritik -> kirmizi, kritik olmayan -> turuncu, sorun yok -> rozet yok
+    crit = tray_icon.make_icon(vm.CRIT, 1).getpixel((46, 8))
+    warn = tray_icon.make_icon(vm.WARN, 1).getpixel((46, 8))
+    assert _near(crit, tray_icon.RED) and _near(warn, tray_icon.ORANGE)
+    assert not _near(tray_icon.make_icon(vm.OK, 0).getpixel((46, 8)), tray_icon.RED)
+    assert tray_icon.make_icon(vm.CRIT, 1).tobytes() != tray_icon.make_icon(vm.CRIT, 2).tobytes()  # sayi cizilir
+
+
+def test_health_badge_counts_and_tooltip():
+    from auxy.core import defender
+
+    def status(**s):
+        base = dict(AMServiceEnabled=True, AntivirusEnabled=True, RealTimeProtectionEnabled=True,
+                    BehaviorMonitorEnabled=True, IsTamperProtected=True)
+        return defender.DefenderStatus(status={**base, **s}, prefs={"MAPSReporting": 2})
+
+    one_crit = vm.evaluate(status(RealTimeProtectionEnabled=False, IsTamperProtected=False))
+    assert one_crit.level == vm.CRIT and one_crit.badge == 1  # kritik varsa yalnizca kritik sayilir
+    assert "1 kritik sorun" in tray.tooltip(one_crit)
+    two_warn = vm.evaluate(status(BehaviorMonitorEnabled=False, IsTamperProtected=False))
+    assert two_warn.level == vm.WARN and two_warn.badge == 2 and "2 uyarı" in tray.tooltip(two_warn)
+    assert vm.evaluate(status()).badge == 0
 
 
 def test_menu_builds_with_and_without_status():
