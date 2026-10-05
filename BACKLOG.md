@@ -1,9 +1,12 @@
-# Backlog
+﻿# Backlog
 
 Kapsam dışı fikirler buraya girer; mevcut milestone genişlemez. (Güncel: 2026-10-05)
 
-## Sırada (v1.0 yolunda)
-- **M9** Paketleme: `Program Files` kurulumu (T1 riskini kapatır), kurulum dosyası, imzalama, veri yolunu Store-sanallaştırmasından çıkarma + taşıma, kaldırıcı (`auxy cleanup` mantığı hazır), yükseltilmiş yardımcı alt komut listesini daraltma
+## Sırada (v1.0 sonrası)
+- Kurulum programını ve exe'leri gerçek sertifikayla imzala (`scripts/sign.ps1` hazır, denenmedi)
+- Windows 10 / temiz VM'de kurulum-kaldırma denemesi
+- Uygulama içi güncelleme (şu an: yeni Setup'ı üstüne kur)
+- Kurulum klasörüne açık ACL denetimi (şu an `Program Files` varsayılanına güvenilir)
 
 ## Fikirler
 - YARA kural taraması

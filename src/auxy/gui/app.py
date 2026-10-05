@@ -230,6 +230,25 @@ class App(ctk.CTk, _DnD):
 
         self.refresh()
         self.after(AUTO_REFRESH_MS, self._auto_refresh)
+        if system.is_frozen():  # ilk calistirmada eski (Store Python) verisini tasima onerisi
+            self.after(800, self._offer_migration)
+
+    def _offer_migration(self) -> None:
+        from auxy.core import migrate
+
+        try:
+            plan = migrate.pending_plan()
+        except Exception:  # noqa: BLE001 - oneri sessizce atlanabilir
+            return
+        if plan is None or not system.confirm_dialog(
+                "Eski sürümden kalma veri bulundu (" + ", ".join(plan.to_copy) + ").\n\n"
+                "Yeni kurulumun veri dizinine KOPYALANSIN mı? Eski veri silinmez.", "AuxySecurity"):
+            return
+        try:
+            steps = migrate.migrate(plan)
+        except Exception as exc:  # noqa: BLE001
+            steps = [f"başarısız: {exc}"]
+        self.dashboard.show_message("Veri taşındı: " + "; ".join(steps))
 
     def report_callback_exception(self, exc, val, tb) -> None:
         """Tk olay isleyicilerindeki istisnalar (varsayilan: stderr; pythonw'de kaybolur) gunluge yazilir."""

@@ -6,3 +6,7 @@ __pycache__/
 build/
 dist/
 .claude/settings.local.json
+packaging/*.ico
+packaging/version_info.txt
+*.exe
+*.zip

@@ -16,8 +16,12 @@ seconds = int(next((a for a in sys.argv[1:] if a.isdigit()), 30))
 env = os.environ.copy()
 env["AUXY_INSTANCE"] = "_measure"
 env["AUXY_HOME"] = tempfile.mkdtemp(prefix="auxy-measure-")
-exe = sys.executable.replace("python.exe", "pythonw.exe")
-proc = subprocess.Popen([exe, "-m", "auxy", "agent"], env=env)
+frozen_exe = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--exe=")), None)
+if frozen_exe:  # paketlenmis AuxySecurity.exe ajanini olc
+    cmd = [frozen_exe, "agent"]
+else:
+    cmd = [sys.executable.replace("python.exe", "pythonw.exe"), "-m", "auxy", "agent"]
+proc = subprocess.Popen(cmd, env=env)
 time.sleep(10)  # acilis + ilk durum okuma + (varsa) calisma kumesi kucultme
 
 try:

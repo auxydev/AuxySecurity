@@ -7,12 +7,13 @@ bir gorev baslatabilir. Gorev yalnizca bu kullanicinin oturum acisinda calisir.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from xml.sax.saxutils import escape
+from xml.sax.saxutils import escape, unescape
 
 from auxy.core import system
 from auxy.core.service import AuxyError
@@ -95,11 +96,13 @@ def _schtasks(*args: str) -> subprocess.CompletedProcess:
     )
 
 
-def install() -> None:
+def install(exe: str | None = None, arguments: str | None = None, workdir: str | None = None) -> None:
+    """Gorevi kurar. Parametreler verilmezse calisan uygulamanin exe'si kullanilir; kurulum programi ise
+    KURULAN exe'yi acikca verir (kendi exe'si degil)."""
     if not system.is_admin():
         raise AuxyError("Gorevi kurmak icin yonetici yetkisi gerekir.")
-    xml = build_task_xml(_current_user(), system.app_exe(windowless=True), project_dir(),
-                         system.launch_params(["agent"]))
+    xml = build_task_xml(_current_user(), exe or system.app_exe(windowless=True), workdir or project_dir(),
+                         arguments if arguments is not None else system.launch_params(["agent"]))
     fd, path = tempfile.mkstemp(suffix=".xml")
     os.close(fd)
     try:
@@ -125,6 +128,15 @@ def remove() -> None:
 def is_installed() -> bool:
     """Hizli kontrol (yalnizca schtasks /Query)."""
     return _schtasks("/Query", "/TN", TASK_NAME).returncode == 0
+
+
+def registered_command() -> str:
+    """Gorevin calistirdigi exe yolu (yoksa bos)."""
+    proc = _schtasks("/Query", "/TN", TASK_NAME, "/XML")
+    if proc.returncode != 0:
+        return ""
+    m = re.search(r"<Command>(.*?)</Command>", proc.stdout, re.S)
+    return unescape(m.group(1)) if m else ""
 
 
 def status() -> AutostartStatus:

@@ -119,6 +119,7 @@ def read_status() -> DefenderStatus:
             wmi_service = win32com.client.GetObject(rf"winmgmts:\\.\{NAMESPACE}")
             status = _query_one(wmi_service, "MSFT_MpComputerStatus", STATUS_FIELDS)
             prefs = _query_one(wmi_service, "MSFT_MpPreference", PREF_FIELDS)
+            del wmi_service  # COM nesnesi CoUninitialize'dan ONCE serbest kalsin
     except DefenderError:
         raise
     except Exception as exc:  # com_error vb.

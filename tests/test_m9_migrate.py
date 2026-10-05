@@ -119,3 +119,30 @@ def test_real_vault_survives_migration_with_dpapi_key(env, tmp_path, monkeypatch
     monkeypatch.setenv("AUXY_HOME", str(env.target))  # artik yeni dizin
     out = Vault.default().restore(item.id)
     assert hashlib.sha256(out.read_bytes()).hexdigest() == hashlib.sha256(data).hexdigest()
+
+
+# ---------------- GUI ilk calistirma onerisi ----------------
+def test_gui_offers_migration_only_when_user_agrees(gui_root, monkeypatch):
+    from auxy.core import migrate, system
+
+    plan = migrate.Plan(source=Path("eski"), target=Path("yeni"), to_copy=("vault",), blocked=())
+    monkeypatch.setattr(migrate, "pending_plan", lambda: plan)
+    applied = []
+    monkeypatch.setattr(migrate, "migrate", lambda p: applied.append(p) or ["vault: kopyalandı"])
+
+    monkeypatch.setattr(system, "confirm_dialog", lambda *a, **k: False)
+    gui_root._offer_migration()
+    assert applied == []  # hayir -> hicbir sey kopyalanmaz
+
+    monkeypatch.setattr(system, "confirm_dialog", lambda *a, **k: True)
+    gui_root._offer_migration()
+    assert applied == [plan]
+    assert "Veri taşındı" in gui_root.dashboard.message.cget("text")
+
+
+def test_gui_migration_offer_skips_when_nothing_pending(gui_root, monkeypatch):
+    from auxy.core import migrate, system
+
+    monkeypatch.setattr(migrate, "pending_plan", lambda: None)
+    monkeypatch.setattr(system, "confirm_dialog", lambda *a, **k: pytest.fail("soru sorulmamali"))
+    gui_root._offer_migration()

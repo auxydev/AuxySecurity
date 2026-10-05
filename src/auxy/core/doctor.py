@@ -65,8 +65,12 @@ def check_dependencies() -> list[Check]:
     out = []
     for module, dist in REQUIRED.items():
         try:
-            importlib.import_module(module)
-            out.append(Check(f"Bağımlılık: {dist}", OK, md.version(dist)))
+            mod = importlib.import_module(module)
+            try:
+                version = md.version(dist)
+            except md.PackageNotFoundError:  # paketlenmis surumde dist-info yok; iceri aktarma yeterli
+                version = str(getattr(mod, "__version__", "gömülü"))
+            out.append(Check(f"Bağımlılık: {dist}", OK, version))
         except Exception as exc:
             out.append(Check(f"Bağımlılık: {dist}", FAIL, f"içe aktarılamadı: {exc}", f"pip install {dist}"))
     return out

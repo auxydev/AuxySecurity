@@ -1,4 +1,4 @@
-<div align="center">
+﻿<div align="center">
 
 # 🛡️ AuxySecurity
 
@@ -7,8 +7,8 @@ Hafif bir tray ajanı · şifreli karantina kasası · tarama yöneticisi · gü
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Platform](https://img.shields.io/badge/Windows-11-0078D4?logo=windows11&logoColor=white)
-![Tests](https://img.shields.io/badge/testler-366%20geçiyor-2e9e5b)
-![Kapsam](https://img.shields.io/badge/kapsam-%25_86-2e9e5b)
+![Tests](https://img.shields.io/badge/testler-414%20geçiyor-2e9e5b)
+![Kapsam](https://img.shields.io/badge/kapsam-%25_89-2e9e5b)
 ![Durum](https://img.shields.io/badge/durum-geliştirme%20(v0.x)-d9932b)
 
 <img src="docs/screenshots/pano.png" alt="AuxySecurity panosu" width="720">
@@ -80,6 +80,18 @@ Hepsi **geri alınabilir** olacak şekilde tasarlandı: bir ayarı ilk değişti
 <sub>Görüntülerdeki tehdit, geçmiş ve kasa listeleri örnek verilerdir (`scripts/readme_shots.py`).</sub>
 
 ## Kurulum
+
+### Hazır kurulum (önerilen, Python gerekmez)
+
+`AuxySecurity-Setup.exe` dosyasını çalıştır (UAC sorar) ya da sessiz kur:
+
+```powershell
+AuxySecurity-Setup.exe /S /AUTOSTART /CONTEXTMENU   # ayrıca /DIR=... /DESKTOP /NOSTARTMENU
+```
+
+Kaldırma: *Ayarlar → Uygulamalar* ya da `AuxySecurity.exe uninstall` (ayarların ve karantina kasan korunur). Kurulum programını kendin üretmek için: `scripts\build.ps1` ardından `scripts\build_installer.ps1` ([M9](docs/milestones/M09-packaging.md)). Sürüm notları: [CHANGELOG](CHANGELOG.md).
+
+### Kaynaktan (geliştirme)
 
 **Gereksinimler:** Windows 11 (Windows 10'da denenmedi), Python **3.12+**, Microsoft Defender etkin (başka bir antivirüs birincil ise bazı özellikler çalışmaz).
 
@@ -179,7 +191,7 @@ Bunlar bilinçli ve belgelenmiş sınırlardır:
 - **Defender karantinasından kalıcı silme** yok (MpCmdRun sunmuyor); alternatif klasöre geri yüklemede Defender öğeyi listede tutar.
 - **Python Store sürümü:** Uygulama verisi Python paketinin özel alanında durur; paketi kaldırmak kasayı da siler. Anahtar yedeğini mutlaka al.
 - **Anahtar Windows kullanıcısına bağlı (DPAPI):** Profil kaybolursa yedek olmadan kasa açılamaz.
-- **UAC ile çalışan kod yazılabilir dizinlerden gelir:** Geliştirme kurulumunda `.venv` ve `src` kullanıcı tarafından yazılabilir; bu hesapta çalışan zararlı bir program yönetici yetkisi kazanabilir. `auxy doctor` ve Ayarlar bunu uyarır, yüksek yetkili başlangıç görevi kurarken onay ister. Kurulu (imzalı, `Program Files`) sürüm riski kapatacak. Ayrıntı: [güvenlik gözden geçirmesi](docs/security-review.md).
+- **UAC ile çalışan kod yazılabilir dizinlerden gelir:** Geliştirme kurulumunda `.venv` ve `src` kullanıcı tarafından yazılabilir; bu hesapta çalışan zararlı bir program yönetici yetkisi kazanabilir. `auxy doctor` ve Ayarlar bunu uyarır, yüksek yetkili başlangıç görevi kurarken onay ister. Kurulu (`Program Files`) sürüm bu riski kapatır (`auxy doctor` doğrular); imzalama için `scripts/sign.ps1` hazır, sertifika sende. Ayrıntı: [güvenlik gözden geçirmesi](docs/security-review.md).
 - **Doğrulanmayanlar:** Gerçek USB, haftalık tetiklenme, oturum açılışı, bildirim balonu ve çevrimdışı tarama (yeniden başlatır) gerçek ortamda denenmedi. Ayrıntı: [B01](docs/milestones/B01-eksik-tamamlama.md).
 
 ## Performans
@@ -197,7 +209,7 @@ Gerçek makinede ölçüldü (Windows 11):
 ## Geliştirme
 
 ```powershell
-pytest -q                           # 366 test, ~19 sn (GUI testleri dahil), kapsam %86
+pytest -q                           # 414 test, ~40 sn (GUI testleri dahil), kapsam %89
 python -m auxy doctor               # ortam tanısı
 python scripts\unused_imports.py src
 ```
@@ -216,7 +228,7 @@ AuxySecurity/
 │  ├─ agent/     tray ajanı, klasör izleme, olay aboneliği, USB, zamanlayıcı
 │  ├─ gui/       pencere, sayfalar (pano, güvenlik, tarama, karantina, ayarlar)
 │  └─ __main__.py   CLI
-├─ tests/        pytest (366 test)
+├─ tests/        pytest (414 test)
 ├─ scripts/      gerçek makine testleri, ölçümler, ekran görüntüsü üretimi
 ├─ docs/         milestone dokümanları, mimari kararlar, ekran görüntüleri
 ├─ PLAN.md       kapsamlı proje planı
@@ -237,7 +249,7 @@ AuxySecurity/
 | [M7](docs/milestones/M07-realtime-helpers.md) | Gerçek zamanlı yardımcılar | ✔ |
 | [B01](docs/milestones/B01-eksik-tamamlama.md) | Eski milestone eksiklerinin tamamlanması | ✔ |
 | [M8](docs/milestones/M08-hardening.md) | Sağlamlaştırma: RAM, çökme kurtarma, güvenlik gözden geçirmesi, `doctor`, kapsam %86 | ✔ |
-| M9 | Paketleme (Program Files, kurulum dosyası), imzalama, v1.0 | 🔄 sırada |
+| [M9](docs/milestones/M09-packaging.md) | Paketleme: Program Files kurulumu, kurulum programı, kaldırıcı, eski veri taşıma, v1.0.0 | ✔ |
 
 Fikirler ve ertelenenler: [BACKLOG.md](BACKLOG.md).
 

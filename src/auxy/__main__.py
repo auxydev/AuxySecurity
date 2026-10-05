@@ -407,6 +407,40 @@ def cmd_cleanup(args) -> int:
     return 0 if all(s.ok for s in steps) else 1
 
 
+def cmd_uninstall(args) -> int:
+    """Kurulu surumu kaldirir (yonetici gerekir). Veri varsayilan olarak KORUNUR."""
+    import ctypes
+
+    from auxy.core import install
+
+    dest = system.install_dir()
+    if dest is None:
+        print("HATA: 'uninstall' yalnızca kurulu (paketlenmiş) sürümde çalışır.", file=sys.stderr)
+        return 2
+
+    def box(text: str, flags: int) -> int:
+        return ctypes.windll.user32.MessageBoxW(0, text, "AuxySecurity", flags)
+
+    if not system.is_admin():
+        extra = [a for a in ("--quiet", "--remove-data", "--force-vault") if getattr(args, a[2:].replace("-", "_"), False)]
+        return 0 if system.relaunch_as_admin(["uninstall", *extra], windowless=True) else 1
+    if not args.quiet and box("AuxySecurity kaldırılsın mı?\n\nKarantina kasan ve ayarların KORUNUR (silmek için "
+                              "komut satırından --remove-data).", 0x24) != 6:  # MB_YESNO | MB_ICONQUESTION, IDYES=6
+        return 1
+    try:
+        steps = install.uninstall(install.InstallOptions(dest=dest), remove_data=args.remove_data,
+                                  force_vault=args.force_vault, log=lambda m: None)
+    except Exception as exc:  # noqa: BLE001
+        if not args.quiet:
+            box(f"Kaldırma başarısız:\n{exc}", 0x10)
+        print(f"HATA: {exc}", file=sys.stderr)
+        return 1
+    if not args.quiet:
+        box("AuxySecurity kaldırıldı.\n\n" + "\n".join(f"• {s}" for s in steps), 0x40)
+    print("\n".join(steps))
+    return 0
+
+
 def cmd_migrate_data(args) -> int:
     from auxy.core import migrate
 
@@ -641,6 +675,12 @@ def main(argv: list[str] | None = None) -> int:
     p_cl.add_argument("--remove-data", action="store_true", help="veri dizinini (günlük, yedek, KASA) sil")
     p_cl.add_argument("--force-vault", action="store_true", help="kasada dosya varken de veriyi sil (kalıcı kayıp!)")
     p_cl.set_defaults(func=cmd_cleanup)
+
+    p_un = sub.add_parser("uninstall", help="Kurulu sürümü kaldır (yönetici; veri varsayılan olarak korunur)")
+    p_un.add_argument("--quiet", action="store_true", help="onay/bilgi kutusu gösterme")
+    p_un.add_argument("--remove-data", action="store_true", help="veri dizinini de sil (kasada dosya varsa reddeder)")
+    p_un.add_argument("--force-vault", action="store_true", help="kasada dosya varken de veriyi sil (kalıcı kayıp!)")
+    p_un.set_defaults(func=cmd_uninstall)
 
     p_mg = sub.add_parser("migrate-data", help="Store Python'un sanallaştırılmış eski veri dizininden gerçek dizine kopyala")
     p_mg.add_argument("--yes", action="store_true", help="kopyalamayı uygula (eski veri silinmez)")
