@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import importlib
 import importlib.metadata as md
-import os
 import re
 import sys
 import time

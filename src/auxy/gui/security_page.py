@@ -164,9 +164,14 @@ class SecurityPage(ctk.CTkFrame):
         self.excl_frame = ctk.CTkFrame(c, fg_color="transparent")
         self.excl_frame.grid(row=c.next_row, column=0, columnspan=3, sticky="ew", padx=16, pady=(0, 10))
         self.excl_frame.columnconfigure(0, weight=1)
-        self.excl_note = ctk.CTkLabel(self.excl_frame, text="(Listelemek için 'Listele'ye bas.)",
-                                      text_color=MUTED, anchor="w")
-        self.excl_note.grid(row=0, column=0, sticky="w")
+        self._set_excl_note("(Listelemek için 'Listele'ye bas.)")
+
+    def _set_excl_note(self, text: str) -> None:
+        """Dislama alanini temizleyip tek satirlik not gosterir. Etiketi HER SEFERINDE yeniden olusturur:
+        liste yenilenirken eski etiket yok ediliyordu ve ikinci 'Listele' TclError veriyordu."""
+        for w in self.excl_frame.winfo_children():
+            w.destroy()
+        ctk.CTkLabel(self.excl_frame, text=text, text_color=MUTED, anchor="w").grid(row=0, column=0, sticky="w")
 
     # ---- mesaj ----
     def say(self, text: str, error: bool = False) -> None:
@@ -369,7 +374,7 @@ class SecurityPage(ctk.CTkFrame):
 
     # ---- dislamalar ----
     def load_exclusions(self) -> None:
-        self.excl_note.configure(text="Okunuyor… (yönetici izni istenebilir)")
+        self._set_excl_note("Okunuyor… (yönetici izni istenebilir)")
         self.app.worker.submit(lambda: actions.exclusion_op("list", "path"), self._show_exclusions)
 
     def _show_exclusions(self, res, exc) -> None:

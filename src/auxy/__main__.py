@@ -388,6 +388,25 @@ def cmd_firewall_rule(args) -> int:
     return 0
 
 
+def cmd_revert_all(args) -> int:
+    if not _helper_guard(args):
+        return 3
+    res = actions.revert_all()
+    _report(args, res.ok, res.message, res.changed)
+    print(("" if res.ok else "HATA: ") + res.message, file=None if res.ok else sys.stderr)
+    return 0 if res.ok else 1
+
+
+def cmd_cleanup(args) -> int:
+    from auxy.core import cleanup
+
+    steps = cleanup.run(remove_data=args.remove_data, revert_settings=args.revert_settings,
+                        force_vault=args.force_vault)
+    for s in steps:
+        print(f" {'✔' if s.ok else '✘'} {s.name:<20} {s.detail}")
+    return 0 if all(s.ok for s in steps) else 1
+
+
 def cmd_doctor(args) -> int:
     from auxy.core import doctor
 
@@ -577,6 +596,16 @@ def main(argv: list[str] | None = None) -> int:
     p_fr.add_argument("value", nargs="?", help="disable/enable: kural adı; block/unblock: program yolu (unblock: kural adı da olur)")
     p_fr.add_argument("--result", help=argparse.SUPPRESS)
     p_fr.set_defaults(func=cmd_firewall_rule)
+
+    p_ra = sub.add_parser("revert-all", help="Tüm ayarları orijinaline döndür (UAC)")
+    p_ra.add_argument("--result", help=argparse.SUPPRESS)
+    p_ra.set_defaults(func=cmd_revert_all)
+
+    p_cl = sub.add_parser("cleanup", help="Kaldırma temizliği: sağ tık menüsü, başlangıç görevi (veriye dokunmaz)")
+    p_cl.add_argument("--revert-settings", action="store_true", help="değiştirilen ayarları orijinaline döndür (UAC)")
+    p_cl.add_argument("--remove-data", action="store_true", help="veri dizinini (günlük, yedek, KASA) sil")
+    p_cl.add_argument("--force-vault", action="store_true", help="kasada dosya varken de veriyi sil (kalıcı kayıp!)")
+    p_cl.set_defaults(func=cmd_cleanup)
 
     p_doc = sub.add_parser("doctor", help="Ortam ve kurulum tanısı (hiçbir şeyi değiştirmez)")
     p_doc.add_argument("--json", action="store_true", help="makine okunur çıktı")

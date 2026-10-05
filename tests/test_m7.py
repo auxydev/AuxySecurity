@@ -20,6 +20,7 @@ REAL_SLEEP = time.sleep
 @pytest.fixture(autouse=True)
 def home(tmp_path, monkeypatch):
     monkeypatch.setenv("AUXY_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("AUXY_INSTANCE", "_m7tests")  # calisan GERCEK ajanla ayni adli olay/mutex paylasilmasin
     import auxy.core.log as log
 
     monkeypatch.setattr(log, "_configured", False)

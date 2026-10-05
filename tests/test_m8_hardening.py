@@ -16,6 +16,7 @@ from auxy.core.vault import Vault, VaultError
 @pytest.fixture(autouse=True)
 def isolated(tmp_path, monkeypatch):
     monkeypatch.setenv("AUXY_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("AUXY_INSTANCE", "_m8hard")  # doctor tarama kilidini/ajan mutex'ini gercek olanlarla paylasmasin
     import auxy.core.log as log
 
     monkeypatch.setattr(log, "_configured", False)

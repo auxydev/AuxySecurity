@@ -123,6 +123,26 @@ def autostart_op(op: str) -> ActionResult:
     return run_elevated(["autostart", op])
 
 
+def revert_all() -> ActionResult:
+    """Defender + Windows guvenlik ayarlarinin HEPSINI orijinal degerlerine dondurur (yonetici; degilsek UAC)."""
+    from auxy.core import winsec
+
+    if system.is_admin():
+        parts, ok = [], True
+        try:
+            parts += [f"{r.key}: {r.old}→{r.new}" for r in DefenderService().revert()]
+        except AuxyError as exc:
+            ok = False
+            parts.append(f"Defender: {exc}")
+        try:
+            parts += [f"{r.key}: {r.old}→{r.new}" for r in winsec.WinSecService().revert()]
+        except AuxyError as exc:
+            ok = False
+            parts.append(f"Windows güvenlik: {exc}")
+        return ActionResult(ok, "; ".join(parts) or "Geri alınacak değişiklik yok.", bool(parts))
+    return run_elevated(["revert-all"])
+
+
 def firewall_op(op: str, value: str = "") -> ActionResult:
     """Guvenlik duvari kurallari. list / list-blocks yonetici GEREKTIRMEZ; digerleri (UAC)."""
     from auxy.core import firewall as fw

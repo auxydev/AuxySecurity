@@ -23,6 +23,25 @@ def gui_root(tmp_path_factory):
     mp.undo()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def keep_tray_icons_alive():
+    """pystray, pencere sinif adini nesnenin id()'sinden turetir; testlerde cok sayida Icon olusturulup birakilinca
+    cop toplayici bir nesneyi silip AYNI id'yi yenisine verebilir ve "WinError 1410: Sinif zaten var" cikar
+    (kirilgan test). Uretimde tek Icon vardir; testlerde nesneleri oturum boyunca canli tutariz."""
+    import pystray
+
+    keep = []
+    original = pystray.Icon.__init__
+
+    def init(self, *a, **k):
+        keep.append(self)
+        original(self, *a, **k)
+
+    pystray.Icon.__init__ = init
+    yield
+    pystray.Icon.__init__ = original
+
+
 @pytest.fixture(autouse=True)
 def no_real_dialogs(monkeypatch):
     """Testte GERCEK bir diyalog (messagebox/filedialog) acilirsa test HATA verir; sessizce takilmaz ya da

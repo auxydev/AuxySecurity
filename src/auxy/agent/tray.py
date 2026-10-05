@@ -212,12 +212,12 @@ class Agent:
     def _quick_scan(self) -> None:
         from auxy.core import scan
 
-        self.icon.notify("Hızlı tarama başladı.", "AuxySecurity")
+        self._notify("Hızlı tarama başladı.")
         try:
             res = self._scans.run(scan.QUICK)
-            self.icon.notify(res.summary(), "AuxySecurity")
+            self._notify(res.summary())
         except Exception as exc:  # ScanBusyError dahil
-            self.icon.notify(str(exc), "AuxySecurity")
+            self._notify(str(exc))
         self.refresh()
 
     @staticmethod
@@ -230,7 +230,7 @@ class Agent:
     def _apply(self, key: str, value: str) -> None:
         res = actions.apply_setting(key, value)
         label = SETTINGS[key].label
-        self.icon.notify(res.message if not res.ok else f"{label}: {res.message}", "AuxySecurity")
+        self._notify(res.message if not res.ok else f"{label}: {res.message}")
         self.refresh()
 
     def open_gui(self, *_args) -> None:
