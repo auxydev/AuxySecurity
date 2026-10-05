@@ -10,3 +10,4 @@ packaging/*.ico
 packaging/version_info.txt
 *.exe
 *.zip
+.coverage
