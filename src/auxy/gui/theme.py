@@ -21,13 +21,18 @@ MUTED = ("#64748b", "#8c98ae")
 ACCENT = ("#2563eb", "#3b82f6")
 ACCENT_HOVER = ("#1d4ed8", "#2563eb")
 TRACK = ("#cbd5e1", "#334155")           # kapali anahtar yolu
-GOOD, WARN, BAD = "#16a34a", "#e08a00", "#dc3545"
+GOOD = ("#15803d", "#4ade80")      # metin renkleri (acik, koyu): her iki modda okunur
+WARN = ("#b45309", "#fbbf24")
+BAD = ("#c62828", "#f87171")
+BTN_BAD = ("#dc3545", "#e5484d")    # kirmizi dugme dolgusu
+BTN_BAD_HOVER = ("#b02a37", "#c93d42")
 OK_BG, WARN_BG, BAD_BG = "#16a34a", "#d9822b", "#d64545"  # pano bandi
 
-SIDEBAR = "#0b1220"
-SIDEBAR_TEXT = "#aab6cc"
-SIDEBAR_HOVER = "#17223a"
-SIDEBAR_MUTED = "#6b7a96"
+SIDEBAR = ("#ffffff", "#0b1220")          # acik modda acik kenar cubugu (icerikle uyumlu), koyuda koyu
+SIDEBAR_TEXT = ("#475569", "#aab6cc")
+SIDEBAR_HOVER = ("#eef2f9", "#17223a")
+SIDEBAR_MUTED = ("#8a97ac", "#6b7a96")
+SIDEBAR_ICON = ("#475569", "#aab6cc")    # simge cizim renkleri (acik, koyu)
 
 FONT_FAMILY = "Segoe UI"
 ICON_FONT = r"C:\Windows\Fonts\SegoeIcons.ttf"  # Windows 11 (Segoe Fluent Icons); yoksa simgesiz devam
@@ -50,7 +55,7 @@ def apply() -> None:
                           fg_color=list(SURFACE), top_fg_color=list(SURFACE),
                          border_color=list(BORDER))
     t["CTkLabel"]["text_color"] = list(TEXT)
-    t["CTkButton"].update(corner_radius=9, fg_color=list(ACCENT), hover_color=list(ACCENT_HOVER),
+    t["CTkButton"].update(corner_radius=9, border_color=["#b6c2d6", "#3a4766"], fg_color=list(ACCENT), hover_color=list(ACCENT_HOVER),
                           text_color=["#ffffff", "#ffffff"], text_color_disabled=["#9aa7bd", "#5b6780"])
     t["CTkSwitch"].update(border_width=3, fg_color=list(TRACK), progress_color=list(ACCENT),
                           button_color=["#3b4a63", "#f1f5f9"], button_hover_color=["#26324a", "#ffffff"],
@@ -59,7 +64,7 @@ def apply() -> None:
                               button_hover_color=list(ACCENT_HOVER), text_color=list(TEXT))
     t["CTkEntry"].update(corner_radius=9, border_width=1, fg_color=list(SURFACE_ALT), border_color=list(BORDER),
                          text_color=list(TEXT))
-    t["CTkTextbox"].update(corner_radius=10, border_width=1, fg_color=list(SURFACE_ALT), border_color=list(BORDER),
+    t["CTkTextbox"].update(corner_radius=14, border_width=1, fg_color=list(SURFACE), border_color=list(BORDER),
                            text_color=list(TEXT))
     t["CTkScrollbar"].update(button_color=["#c3ccdb", "#394560"], button_hover_color=["#a3afc4", "#4b5a7a"])
     t["CTkProgressBar"].update(fg_color=list(TRACK), progress_color=list(ACCENT))
@@ -72,7 +77,7 @@ def apply() -> None:
 
 
 @lru_cache(maxsize=32)
-def icon(key: str, size: int = 20, color: str = "#ffffff") -> ctk.CTkImage | None:
+def icon(key: str, size: int = 20, color: str = "#ffffff", dark: str | None = None) -> ctk.CTkImage | None:
     """Kenar cubugu simgesi (Segoe Fluent Icons yazi tipinden cizilir). Yazi tipi yoksa None."""
     glyph = GLYPHS.get(key)
     if not glyph:
@@ -82,10 +87,13 @@ def icon(key: str, size: int = 20, color: str = "#ffffff") -> ctk.CTkImage | Non
 
         scale = 4
         font = ImageFont.truetype(ICON_FONT, size * scale)
-        img = Image.new("RGBA", (size * scale, size * scale), (0, 0, 0, 0))
-        ImageDraw.Draw(img).text((size * scale / 2, size * scale / 2), glyph, font=font, fill=color, anchor="mm")
-        img = img.resize((size, size), Image.LANCZOS)
-        return ctk.CTkImage(light_image=img, dark_image=img, size=(size, size))
+
+        def draw(fill: str):
+            img = Image.new("RGBA", (size * scale, size * scale), (0, 0, 0, 0))
+            ImageDraw.Draw(img).text((size * scale / 2, size * scale / 2), glyph, font=font, fill=fill, anchor="mm")
+            return img.resize((size, size), Image.LANCZOS)
+
+        return ctk.CTkImage(light_image=draw(color), dark_image=draw(dark or color), size=(size, size))
     except Exception:  # noqa: BLE001 - simge kozmetik; yazi tipi/PIL sorunu uygulamayi bozmaz
         return None
 

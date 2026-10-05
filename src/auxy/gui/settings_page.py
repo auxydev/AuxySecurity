@@ -9,8 +9,9 @@ import customtkinter as ctk
 from auxy import __version__
 from auxy.core import actions, autostart, contextmenu, hardening, system
 from auxy.core import config as cfgmod
+from auxy.gui import theme
 
-MUTED = ("gray40", "gray60")
+MUTED = theme.MUTED
 HOURS = [f"{h:02d}:00" for h in range(24)]
 KINDS = {"Hızlı tarama": "quick", "Tam tarama": "full"}
 
@@ -53,7 +54,7 @@ class SettingsPage(ctk.CTkFrame):
         fb.grid(row=3, column=2, padx=16)
         ctk.CTkButton(fb, text="Klasör ekle…", width=100, height=24, command=self.add_folder).pack(side="left")
         ctk.CTkButton(fb, text="Sıfırla", width=60, height=24, fg_color="transparent", border_width=1,
-                      text_color=("gray20", "gray85"), command=self.reset_folders).pack(side="left", padx=(6, 0))
+                      text_color=theme.TEXT, command=self.reset_folders).pack(side="left", padx=(6, 0))
 
         self.recursive_sw = self._switch(card, 4, "İzlenen klasörlerin alt klasörlerini de izle", self._save)
         self.events_sw = self._switch(card, 5, "Tehdit bulununca bildirim göster", self._save)
@@ -127,7 +128,7 @@ class SettingsPage(ctk.CTkFrame):
         self.agent_lbl.configure(
             text="Tray ajanı çalışıyor: değişiklikler hemen uygulanır." if running else
                  "Tray ajanı çalışmıyor: ayarlar kaydedilir ama ajan açılınca (ya da başlangıçta) uygulanır.",
-            text_color=MUTED if running else "#d9932b")
+            text_color=MUTED if running else theme.WARN)
 
     def collect(self) -> cfgmod.Config:
         return cfgmod.Config(
@@ -151,7 +152,7 @@ class SettingsPage(ctk.CTkFrame):
         self.say("Kaydedildi.")
 
     def say(self, text: str, error: bool = False) -> None:
-        self.message.configure(text=text, text_color="#d64545" if error else ("gray20", "gray85"))
+        self.message.configure(text=text, text_color=theme.BAD if error else theme.TEXT)
 
     # ---- klasorler ----
     def add_folder(self) -> None:

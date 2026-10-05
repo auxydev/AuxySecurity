@@ -9,8 +9,9 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
 from auxy.core import actions, scan, threats
+from auxy.gui import theme
 
-MUTED = ("gray40", "gray60")
+MUTED = theme.MUTED
 
 
 def format_detection(d: threats.Detection) -> str:
@@ -53,12 +54,12 @@ class ScanPage(ctk.CTkFrame):
         ]
         for b in self.start_buttons:
             b.pack(side="left", padx=(0, 8))
-        self.cancel_btn = ctk.CTkButton(bar, text="İptal", width=80, fg_color="#d64545",
-                                        hover_color="#b53a3a", state="disabled", command=self.cancel)
+        self.cancel_btn = ctk.CTkButton(bar, text="İptal", width=80, fg_color=theme.BTN_BAD,
+                                        hover_color=theme.BTN_BAD_HOVER, state="disabled", command=self.cancel)
         self.cancel_btn.pack(side="left", padx=(8, 0))
         self.sig_btn = ctk.CTkButton(bar, text="İmzaları güncelle", width=140,
                                      fg_color="transparent", border_width=1,
-                                     text_color=("gray20", "gray85"), command=self.update_sigs)
+                                     text_color=theme.TEXT, command=self.update_sigs)
         self.sig_btn.pack(side="right")
 
         self.progress = ctk.CTkProgressBar(self, mode="determinate")
@@ -75,7 +76,7 @@ class ScanPage(ctk.CTkFrame):
         ctk.CTkButton(head, text="Yenile", width=70, height=24, command=self.refresh_lists).pack(
             side="right")
         self.clean_btn = ctk.CTkButton(head, text="Etkin tehditleri temizle (Defender)", width=230, height=24,
-                                       fg_color="#d64545", hover_color="#b53a3a", command=self.clean_active)
+                                       fg_color=theme.BTN_BAD, hover_color=theme.BTN_BAD_HOVER, command=self.clean_active)
         # yalnizca etkin tehdit varsa gorunur (_show_threats)
         self.threat_box = ctk.CTkScrollableFrame(self, height=140, corner_radius=8)
         self.threat_box.grid(row=5, column=0, sticky="nsew")
@@ -154,7 +155,7 @@ class ScanPage(ctk.CTkFrame):
     def scan_paths(self, paths: list[str]) -> None:
         """Birakilan birden fazla yolu sirayla tarar (tek yol: normal ozel tarama)."""
         if self.manager.running or self._started_at is not None:
-            self.status.configure(text="Zaten bir tarama sürüyor.", text_color="#d64545")
+            self.status.configure(text="Zaten bir tarama sürüyor.", text_color=theme.BAD)
             return
         if len(paths) == 1:
             self.start(scan.CUSTOM, paths[0])
@@ -179,12 +180,12 @@ class ScanPage(ctk.CTkFrame):
         self._started_at = None
         self._set_busy(False)
         if exc is not None:
-            self.status.configure(text=str(exc), text_color="#d64545")
+            self.status.configure(text=str(exc), text_color=theme.BAD)
         else:
             found = sorted({t for r in results for t in r.threats})
             text = f"{len(results)} öğe tarandı: " + (f"{len(found)} tehdit bulundu ({', '.join(found)})."
                                                       if found else "tehdit bulunamadı.")
-            self.status.configure(text=text, text_color="#d64545" if found else "#2e9e5b")
+            self.status.configure(text=text, text_color=theme.BAD if found else theme.GOOD)
         self.refresh_lists()
         self.app.refresh()
 
@@ -192,19 +193,19 @@ class ScanPage(ctk.CTkFrame):
         if self._started_at is None:
             return
         elapsed = scan.format_duration(time.monotonic() - self._started_at)
-        self.status.configure(text=f"{self._scan_title} sürüyor… {elapsed}", text_color=("gray20", "gray85"))
+        self.status.configure(text=f"{self._scan_title} sürüyor… {elapsed}", text_color=theme.TEXT)
         self.after(1000, self._tick)  # yalnizca tarama sirasinda
 
     def _on_done(self, res, exc) -> None:
         self._started_at = None
         self._set_busy(False)
         if exc is not None:
-            self.status.configure(text=str(exc), text_color="#d64545")
+            self.status.configure(text=str(exc), text_color=theme.BAD)
         else:
             bad = res.status == scan.FAILED or bool(res.threats)
             self.status.configure(
                 text=f"{res.summary()}  ({scan.format_duration(res.seconds)})",
-                text_color="#d64545" if bad else "#2e9e5b",
+                text_color=theme.BAD if bad else theme.GOOD,
             )
         self.refresh_lists()
         self.app.refresh()
@@ -215,11 +216,11 @@ class ScanPage(ctk.CTkFrame):
                                    "Devam edilsin mi?"):
             return
         self.status.configure(text="Etkin tehditler temizleniyor… (yönetici izni istenebilir)",
-                              text_color=("gray20", "gray85"))
+                              text_color=theme.TEXT)
 
         def done(res, exc):
             ok = exc is None and res.ok
-            self.status.configure(text=str(exc) if exc else res.message, text_color="#2e9e5b" if ok else "#d64545")
+            self.status.configure(text=str(exc) if exc else res.message, text_color=theme.GOOD if ok else theme.BAD)
             self.refresh_lists()
             self.app.refresh()
 
@@ -238,19 +239,19 @@ class ScanPage(ctk.CTkFrame):
             self.manager._cancel_requested = False  # iptal olmadi; tarama sonucu normal islensin
             if self.manager.running:
                 self.cancel_btn.configure(state="normal")
-            self.status.configure(text=msg, text_color="#d64545")
+            self.status.configure(text=msg, text_color=theme.BAD)
 
     def update_sigs(self) -> None:
         self.sig_btn.configure(state="disabled")
-        self.status.configure(text="İmzalar güncelleniyor… (~20 sn)", text_color=("gray20", "gray85"))
+        self.status.configure(text="İmzalar güncelleniyor… (~20 sn)", text_color=theme.TEXT)
 
         def done(res, exc):
             self.sig_btn.configure(state="normal")
             if exc is not None:
-                self.status.configure(text=str(exc), text_color="#d64545")
+                self.status.configure(text=str(exc), text_color=theme.BAD)
             else:
                 ok, msg = res
-                self.status.configure(text=msg, text_color="#2e9e5b" if ok else "#d64545")
+                self.status.configure(text=msg, text_color=theme.GOOD if ok else theme.BAD)
             self.app.refresh()
 
         self.app.worker.submit(scan.update_signatures, done, long=True)

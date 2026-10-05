@@ -9,8 +9,9 @@ import customtkinter as ctk
 
 from auxy.core import actions
 from auxy.core.vault import MIN_PASSWORD_LEN, Vault, VaultItem, import_key_file
+from auxy.gui import theme
 
-MUTED = ("gray40", "gray60")
+MUTED = theme.MUTED
 _vault: Vault | None = None
 MODE_VAULT, MODE_DEFENDER = "AuxySecurity kasası", "Defender karantinası"
 INFO_VAULT = ("Kasadaki dosyalar AES-256 ile şifrelenir ve çalıştırılamaz. "
@@ -34,7 +35,7 @@ def ask_password(parent, title: str, confirm: bool = False) -> str | None:
     if confirm:
         e2 = ctk.CTkEntry(dlg, show="•", width=300, placeholder_text="Parola (tekrar)")
         e2.pack(pady=4)
-    err = ctk.CTkLabel(dlg, text="", text_color="#d64545")
+    err = ctk.CTkLabel(dlg, text="", text_color=theme.BAD)
     err.pack()
 
     def ok(_e=None):
@@ -56,7 +57,7 @@ def ask_password(parent, title: str, confirm: bool = False) -> str | None:
     row.pack(pady=8)
     ctk.CTkButton(row, text="Tamam", width=100, command=ok).pack(side="left", padx=6)
     ctk.CTkButton(row, text="İptal", width=100, fg_color="transparent", border_width=1,
-                  text_color=("gray20", "gray85"), command=dlg.destroy).pack(side="left")
+                  text_color=theme.TEXT, command=dlg.destroy).pack(side="left")
     dlg.bind("<Return>", ok)
     dlg.after(100, lambda: (dlg.grab_set(), e1.focus_set()))
     parent.wait_window(dlg)
@@ -107,9 +108,9 @@ class VaultPage(ctk.CTkFrame):
         keys = ctk.CTkFrame(self, fg_color="transparent")
         keys.grid(row=4, column=0, sticky="w", pady=(8, 0))
         ctk.CTkButton(keys, text="Anahtarı yedekle…", width=140, height=26, fg_color="transparent",
-                      border_width=1, text_color=("gray20", "gray85"), command=self.export_key).pack(side="left")
+                      border_width=1, text_color=theme.TEXT, command=self.export_key).pack(side="left")
         ctk.CTkButton(keys, text="Anahtarı geri yükle…", width=150, height=26, fg_color="transparent",
-                      border_width=1, text_color=("gray20", "gray85"), command=self.import_key).pack(
+                      border_width=1, text_color=theme.TEXT, command=self.import_key).pack(
             side="left", padx=8)
         ctk.CTkLabel(keys, text="Windows profili değişirse yedek olmadan kasa açılamaz.",
                      text_color=MUTED).pack(side="left")
@@ -175,12 +176,12 @@ class VaultPage(ctk.CTkFrame):
             ctk.CTkButton(row, text="Geri yükle", width=90,
                           command=lambda it=item: self.restore(it)).grid(
                 row=0, column=1, rowspan=3, padx=(0, 6))
-            ctk.CTkButton(row, text="Sil", width=60, fg_color="#d64545", hover_color="#b53a3a",
+            ctk.CTkButton(row, text="Sil", width=60, fg_color=theme.BTN_BAD, hover_color=theme.BTN_BAD_HOVER,
                           command=lambda it=item: self.delete(it)).grid(
                 row=0, column=2, rowspan=3, padx=(0, 12))
 
     def say(self, text: str, error: bool = False) -> None:
-        self.status.configure(text=text, text_color="#d64545" if error else ("gray20", "gray85"))
+        self.status.configure(text=text, text_color=theme.BAD if error else theme.TEXT)
 
     # ---- eylemler ----
     def add_file(self) -> None:
@@ -311,7 +312,7 @@ class DefenderView(ctk.CTkFrame):
         bar.grid(row=0, column=0, sticky="ew", pady=(0, 6))
         ctk.CTkButton(bar, text="Listele", width=80, command=self.load).pack(side="left")
         ctk.CTkButton(bar, text="Etkin tehditleri temizle", width=170, command=self.clean).pack(side="left", padx=6)
-        ctk.CTkButton(bar, text="Çevrimdışı tarama…", width=150, fg_color="#d64545", hover_color="#b53a3a",
+        ctk.CTkButton(bar, text="Çevrimdışı tarama…", width=150, fg_color=theme.BTN_BAD, hover_color=theme.BTN_BAD_HOVER,
                       command=self.offline_scan).pack(side="right")
         self.list = ctk.CTkScrollableFrame(self, corner_radius=14, border_width=1)
         self.list.grid(row=1, column=0, sticky="nsew")

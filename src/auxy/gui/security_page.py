@@ -8,9 +8,10 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
 from auxy.core import actions, winsec
+from auxy.gui import theme
 
-MUTED = ("gray40", "gray60")
-GOOD, BAD = "#2e9e5b", "#d64545"
+MUTED = theme.MUTED
+GOOD, BAD = theme.GOOD, theme.BAD
 SMARTSCREEN_TR = {"Kapalı": "off", "Uyar": "warn", "Engelle": "block"}
 SMARTSCREEN_BACK = {v: k for k, v in SMARTSCREEN_TR.items()}
 
@@ -44,7 +45,7 @@ class Card(ctk.CTkFrame):
 
     def line(self, text: str = "", color=None) -> ctk.CTkLabel:
         lbl = ctk.CTkLabel(self, text=text, anchor="w", justify="left", wraplength=560,
-                           text_color=color or ("gray20", "gray85"))
+                           text_color=color or theme.TEXT)
         lbl.grid(row=self.next_row, column=0, columnspan=3, sticky="w", padx=16, pady=2)
         self.next_row += 1
         return lbl
@@ -137,7 +138,7 @@ class SecurityPage(ctk.CTkFrame):
 
     # ---- mesaj ----
     def say(self, text: str, error: bool = False) -> None:
-        self.message.configure(text=text, text_color=BAD if error else ("gray20", "gray85"))
+        self.message.configure(text=text, text_color=BAD if error else theme.TEXT)
 
     # ---- veri ----
     def refresh(self) -> None:
@@ -165,7 +166,7 @@ class SecurityPage(ctk.CTkFrame):
         configured = values["hvci"] == "on"
         if device.hvci_running is not None and configured != device.hvci_running:
             self.hvci_note.configure(text="Ayar değişti, etkinleşmesi için bilgisayarı yeniden başlat.",
-                                     text_color="#d9932b")
+                                     text_color=theme.WARN)
         else:
             self.hvci_note.configure(text=winsec.WINSEC_SETTINGS["hvci"].hint, text_color=MUTED)
 
@@ -227,7 +228,7 @@ class SecurityPage(ctk.CTkFrame):
             self.tpm_lbl.configure(
                 text=f"Var: {yn(d.get('TpmPresent'))} • Hazır: {yn(d.get('TpmReady'))} • "
                      f"Etkin: {yn(d.get('TpmEnabled'))} • Sürüm: {d.get('ManufacturerVersion') or '?'}",
-                text_color=("gray20", "gray85"))
+                text_color=theme.TEXT)
 
         self.app.worker.submit(actions.read_tpm, done)
 
@@ -250,7 +251,7 @@ class SecurityPage(ctk.CTkFrame):
                 ctk.CTkLabel(self.excl_frame, text=f"[{kinds[kind]}]  {it}", anchor="w",
                              wraplength=470, justify="left").grid(row=r, column=0, sticky="w", pady=2)
                 ctk.CTkButton(self.excl_frame, text="Kaldır", width=70, height=24, fg_color=BAD,
-                              hover_color="#b53a3a",
+                              hover_color=theme.BTN_BAD_HOVER,
                               command=lambda k=kind, v=it: self.remove_exclusion(k, v)).grid(
                     row=r, column=1, padx=(8, 0))
                 r += 1

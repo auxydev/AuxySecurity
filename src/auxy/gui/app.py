@@ -63,7 +63,7 @@ class DashboardPage(ctk.CTkFrame):
         self.admin_row.grid(row=1, column=0, sticky="ew", pady=(0, 8))
         self.admin_label = ctk.CTkLabel(
             self.admin_row, text="Ayar değiştirirken yönetici izni (UAC) istenecek.",
-            text_color=("gray30", "gray70"),
+            text_color=theme.MUTED,
         )
         self.admin_label.pack(side="left")
         self.admin_btn = ctk.CTkButton(
@@ -101,7 +101,7 @@ class DashboardPage(ctk.CTkFrame):
             s = SETTINGS[key]
             ctk.CTkLabel(sw, text=s.label, anchor="w").grid(
                 row=i, column=0, sticky="w", padx=18, pady=8)
-            note = ctk.CTkLabel(sw, text="", text_color=("gray40", "gray60"))
+            note = ctk.CTkLabel(sw, text="", text_color=theme.MUTED)
             note.grid(row=i, column=1, padx=8)
             switch = ctk.CTkSwitch(sw, text="", width=46)
             switch.configure(command=lambda k=key, w=switch: app.toggle(k, w))
@@ -148,7 +148,7 @@ class DashboardPage(ctk.CTkFrame):
             self.admin_row.grid()
 
     def show_message(self, text: str, error: bool = False) -> None:
-        self.message.configure(text=text, text_color="#d64545" if error else ("gray20", "gray85"))
+        self.message.configure(text=text, text_color=theme.BAD if error else theme.TEXT)
 
 
 class PlaceholderPage(ctk.CTkFrame):
@@ -206,6 +206,8 @@ class App(ctk.CTk, _DnD):
 
         sidebar = ctk.CTkFrame(self, width=224, corner_radius=0, fg_color=theme.SIDEBAR, border_width=0)
         sidebar.grid(row=0, column=0, sticky="nsew")
+        ctk.CTkFrame(self, width=1, corner_radius=0, fg_color=theme.BORDER, border_width=0).grid(
+            row=0, column=0, sticky="nse")  # kenar cubugu ayirici cizgi
         sidebar.grid_propagate(False)
         sidebar.rowconfigure(2, weight=1)
         brand = ctk.CTkFrame(sidebar, fg_color="transparent")
@@ -213,7 +215,7 @@ class App(ctk.CTk, _DnD):
         ctk.CTkLabel(brand, text="", image=theme.logo_image(38)).pack(side="left")
         names = ctk.CTkFrame(brand, fg_color="transparent")
         names.pack(side="left", padx=(10, 0))
-        ctk.CTkLabel(names, text="AuxySecurity", text_color="white", anchor="w",
+        ctk.CTkLabel(names, text="AuxySecurity", text_color=theme.TEXT, anchor="w",
                      font=ctk.CTkFont(size=17, weight="bold")).pack(anchor="w")
         ctk.CTkLabel(names, text="Windows Güvenlik paneli", text_color=theme.SIDEBAR_MUTED, anchor="w",
                      font=ctk.CTkFont(size=11)).pack(anchor="w")
@@ -224,7 +226,7 @@ class App(ctk.CTk, _DnD):
             b = ctk.CTkButton(nav, text=f"  {label}", anchor="w", height=42, corner_radius=10,
                               fg_color="transparent", text_color=theme.SIDEBAR_TEXT,
                               hover_color=theme.SIDEBAR_HOVER, font=ctk.CTkFont(size=14),
-                              image=theme.icon(key, 20, theme.SIDEBAR_TEXT), compound="left",
+                              image=theme.icon(key, 20, *theme.SIDEBAR_ICON), compound="left",
                               command=lambda k=key: self.show(k))
             b.pack(fill="x", pady=2)
             self.nav_buttons[key] = b
@@ -234,7 +236,7 @@ class App(ctk.CTk, _DnD):
 
         self.admin_pill = ctk.CTkLabel(
             foot, text="●  Yönetici" if self.admin else "●  Standart kullanıcı", anchor="w",
-            text_color="#4ade80" if self.admin else theme.SIDEBAR_MUTED, font=ctk.CTkFont(size=12))
+            text_color=("#16a34a", "#4ade80") if self.admin else theme.SIDEBAR_MUTED, font=ctk.CTkFont(size=12))
         self.admin_pill.pack(anchor="w")
         ctk.CTkLabel(foot, text=f"Sürüm {__version__}", text_color=theme.SIDEBAR_MUTED, anchor="w",
                      font=ctk.CTkFont(size=11)).pack(anchor="w", pady=(2, 0))
@@ -326,7 +328,7 @@ class App(ctk.CTk, _DnD):
             b.configure(fg_color=theme.ACCENT if active else "transparent",
                         hover_color=theme.ACCENT_HOVER if active else theme.SIDEBAR_HOVER,
                         text_color="white" if active else theme.SIDEBAR_TEXT,
-                        image=theme.icon(k, 20, "#ffffff" if active else theme.SIDEBAR_TEXT))
+                        image=theme.icon(k, 20, "#ffffff", "#ffffff") if active else theme.icon(k, 20, *theme.SIDEBAR_ICON))
         if key == "log":
             self.log_page.reload()
         elif key == "scan":

@@ -1,5 +1,12 @@
 # Sürüm notları
 
+## 1.1.2 — 2026-10-05
+
+### Düzeltilen (aydınlık mod)
+- Kenar çubuğu artık mod'u izler (aydınlıkta açık, koyuda koyu); simgeler iki modda da okunur.
+- Tüm sayfalardaki renkler tek bir palete bağlandı: durum/hata/uyarı metinleri iki modda da okunur, kırmızı düğmeler ve çerçeveli düğmeler tutarlı.
+- Metin kutuları (tarama geçmişi vb.) kartlarla aynı yüzey rengini kullanır.
+
 ## 1.1.1 — 2026-10-05
 
 ### Düzeltilen

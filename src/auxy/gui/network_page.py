@@ -9,8 +9,9 @@ import customtkinter as ctk
 
 from auxy.core import actions, firewall, netservices, winsec
 from auxy.gui.security_page import BAD, CONFIRM_OFF, GOOD, MUTED, Card
+from auxy.gui import theme
 
-ORANGE = "#d9932b"
+ORANGE = theme.WARN
 INBOUND_TR = {"Varsayılan": "default", "Engelle": "block", "İzin ver": "allow"}
 INBOUND_BACK = {v: k for k, v in INBOUND_TR.items()}
 RULES_SHOWN = 40
@@ -52,7 +53,7 @@ class NetworkPage(ctk.CTkFrame):
         c.next_row += 1
         self.gdpi_state = ctk.CTkLabel(row, text="Okunuyor…", font=ctk.CTkFont(size=16, weight="bold"))
         self.gdpi_state.pack(side="left")
-        self.gdpi_stop_btn = ctk.CTkButton(row, text="Kapat", width=80, fg_color=BAD, hover_color="#b53a3a",
+        self.gdpi_stop_btn = ctk.CTkButton(row, text="Kapat", width=80, fg_color=theme.BTN_BAD, hover_color=theme.BTN_BAD_HOVER,
                                            command=lambda: self.gdpi_op("gdpi-stop"))
         self.gdpi_stop_btn.pack(side="right")
         self.gdpi_start_btn = ctk.CTkButton(row, text="Başlat", width=80, command=lambda: self.gdpi_op("gdpi-start"))
@@ -73,7 +74,7 @@ class NetworkPage(ctk.CTkFrame):
         c.next_row += 1
         self.warp_state = ctk.CTkLabel(row, text="Okunuyor…", font=ctk.CTkFont(size=16, weight="bold"))
         self.warp_state.pack(side="left")
-        self.warp_off_btn = ctk.CTkButton(row, text="Bağlantıyı kes", width=110, fg_color=BAD, hover_color="#b53a3a",
+        self.warp_off_btn = ctk.CTkButton(row, text="Bağlantıyı kes", width=110, fg_color=theme.BTN_BAD, hover_color=theme.BTN_BAD_HOVER,
                                           command=lambda: self.warp_op("warp-disconnect"))
         self.warp_off_btn.pack(side="right")
         self.warp_on_btn = ctk.CTkButton(row, text="Bağlan", width=80, command=lambda: self.warp_op("warp-connect"))
@@ -133,7 +134,7 @@ class NetworkPage(ctk.CTkFrame):
 
     # ---- mesaj ----
     def say(self, text: str, error: bool = False) -> None:
-        self.message.configure(text=text, text_color=BAD if error else ("gray20", "gray85"))
+        self.message.configure(text=text, text_color=BAD if error else theme.TEXT)
 
     # ---- veri ----
     def refresh(self) -> None:
