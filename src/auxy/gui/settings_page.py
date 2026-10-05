@@ -10,6 +10,7 @@ from auxy import __version__
 from auxy.core import actions, autostart, contextmenu, hardening, system
 from auxy.core import config as cfgmod
 from auxy.gui import theme
+from auxy.gui.widgets import Card, page_header
 
 MUTED = theme.MUTED
 HOURS = [f"{h:02d}:00" for h in range(24)]
@@ -24,92 +25,61 @@ class SettingsPage(ctk.CTkFrame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
 
-        head = ctk.CTkFrame(self, fg_color="transparent")
-        head.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        ctk.CTkLabel(head, text="Ayarlar", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
-        self.message = ctk.CTkLabel(head, text="", anchor="e", wraplength=420, justify="right")
-        self.message.pack(side="right")
+        head = page_header(self, "Ayarlar", "Uygulamanın davranışını ve otomatik korumaları buradan düzenle.")
+        self.message = head.message
+        self.message.pack(side="right", padx=(0, 12))  # butonlarin soluna
 
         body = ctk.CTkScrollableFrame(self, fg_color="transparent")
         body.grid(row=1, column=0, sticky="nsew")
         body.columnconfigure(0, weight=1)
 
         # ---- gorunum ----
-        card = self._card(body, "Görünüm", 0)
-        ctk.CTkLabel(card, text="Tema", anchor="w").grid(row=1, column=0, sticky="w", padx=16, pady=6)
-        ctk.CTkOptionMenu(
-            card, values=["Sistem", "Açık", "Koyu"], width=120,
-            command=lambda v: ctk.set_appearance_mode({"Sistem": "system", "Açık": "light", "Koyu": "dark"}[v]),
-        ).grid(row=1, column=2, padx=16, pady=6)
+        card = Card(body, "Görünüm", 0)
+        self.theme_menu = card.menu_row(
+            "Tema", ["Sistem", "Açık", "Koyu"],
+            lambda v: ctk.set_appearance_mode({"Sistem": "system", "Açık": "light", "Koyu": "dark"}[v]),
+            "Windows'un açık/koyu ayarını izle ya da sabitle.", 130)
 
-        # ---- yardimcilar ----
-        card = self._card(body, "Gerçek zamanlı yardımcılar", 1)
-        self.agent_lbl = ctk.CTkLabel(card, text="", anchor="w", text_color=MUTED, wraplength=520, justify="left")
-        self.agent_lbl.grid(row=1, column=0, columnspan=3, sticky="w", padx=16)
-
-        self.watch_sw = self._switch(card, 2, "Yeni indirilen dosyaları otomatik tara", self._save)
-        self.folders_lbl = ctk.CTkLabel(card, text="", anchor="w", text_color=MUTED, wraplength=430, justify="left")
-        self.folders_lbl.grid(row=3, column=0, sticky="w", padx=32)
-        fb = ctk.CTkFrame(card, fg_color="transparent")
-        fb.grid(row=3, column=2, padx=16)
-        ctk.CTkButton(fb, text="Klasör ekle…", width=100, height=24, command=self.add_folder).pack(side="left")
-        ctk.CTkButton(fb, text="Sıfırla", width=60, height=24, fg_color="transparent", border_width=1,
-                      text_color=theme.TEXT, command=self.reset_folders).pack(side="left", padx=(6, 0))
-
-        self.recursive_sw = self._switch(card, 4, "İzlenen klasörlerin alt klasörlerini de izle", self._save)
-        self.events_sw = self._switch(card, 5, "Tehdit bulununca bildirim göster", self._save)
-        self.usb_sw = self._switch(card, 6, "Takılan USB sürücüyü tara", self._save)
-
-        self.sched_sw = self._switch(card, 7, "Haftalık zamanlanmış tarama (bilgisayar boştayken)", self._save)
-        row = ctk.CTkFrame(card, fg_color="transparent")
-        row.grid(row=8, column=0, columnspan=3, sticky="w", padx=32, pady=(0, 8))
+        # ---- otomatik koruma ----
+        card = Card(body, "Otomatik koruma", 1, "Sen bir şey yapmasan da arka planda çalışan korumalar.")
+        self.agent_lbl = card.line("", MUTED)
+        self.watch_sw = card.switch_row("Yeni indirilen dosyaları tara", self._save,
+                                        "İndirilenler klasörüne düşen dosyalar otomatik taranır.")
+        fb = card.button_bar(pady=(0, 6))
+        self.folders_lbl = ctk.CTkLabel(fb, text="", anchor="w", text_color=MUTED, wraplength=420, justify="left")
+        self.folders_lbl.pack(side="left")
+        ctk.CTkButton(fb, text="Sıfırla", width=70, height=28, fg_color="transparent", border_width=1,
+                      text_color=theme.TEXT, command=self.reset_folders).pack(side="right")
+        ctk.CTkButton(fb, text="Klasör ekle…", width=110, height=28, command=self.add_folder).pack(
+            side="right", padx=(0, 6))
+        self.recursive_sw = card.switch_row("Alt klasörleri de izle", self._save,
+                                            "İzlenen klasörlerin içindeki klasörler de kapsanır.")
+        self.events_sw = card.switch_row("Tehdit bulununca bildirim göster", self._save,
+                                         "Defender bir tehdit yakaladığında sağ altta haber verir.")
+        self.usb_sw = card.switch_row("Takılan USB sürücüyü tara", self._save,
+                                      "Bir flash bellek taktığında içi otomatik taranır.")
+        self.sched_sw = card.switch_row("Haftalık zamanlanmış tarama", self._save,
+                                        "Bilgisayar 5 dk boştaysa ve prizdeyse çalışır; uygun an yoksa 6 saat sonra vazgeçer.")
+        row = card.button_bar(pady=(0, 12))
         self.day_menu = ctk.CTkOptionMenu(row, values=cfgmod.WEEKDAYS, width=120, command=lambda _v: self._save())
         self.day_menu.pack(side="left")
         self.hour_menu = ctk.CTkOptionMenu(row, values=HOURS, width=90, command=lambda _v: self._save())
         self.hour_menu.pack(side="left", padx=6)
         self.kind_menu = ctk.CTkOptionMenu(row, values=list(KINDS), width=130, command=lambda _v: self._save())
         self.kind_menu.pack(side="left")
-        ctk.CTkLabel(card, text="Bilgisayar 5 dk boştaysa ve prizdeyse çalışır; uygun an yoksa 6 saat sonra vazgeçer.",
-                     anchor="w", text_color=MUTED, wraplength=520, justify="left").grid(
-            row=9, column=0, columnspan=3, sticky="w", padx=32, pady=(0, 10))
 
-        # ---- sag tik ----
-        card = self._card(body, "Explorer", 2)
-        self.ctx_sw = self._switch(card, 1, "Sağ tık menüsüne 'Auxy ile tara' ekle", self._toggle_context)
-        ctk.CTkLabel(card, text="Yalnızca bu kullanıcı için kaydedilir (yönetici gerekmez), kapatınca silinir.",
-                     anchor="w", text_color=MUTED, wraplength=520, justify="left").grid(
-            row=2, column=0, columnspan=3, sticky="w", padx=16, pady=(0, 10))
-
-        # ---- baslangic ----
-        card = self._card(body, "Başlangıç", 3)
-        self.autostart_sw = self._switch(card, 1, "Windows açılışında tray ajanını başlat", self._toggle_autostart)
-        ctk.CTkLabel(card, text="Görev Zamanlayıcı ile oturum açılışından 30 sn sonra, yüksek yetkiyle (her açılışta "
-                                "UAC sorulmadan) başlar. Kurmak ve kaldırmak yönetici izni (UAC) ister.",
-                     anchor="w", text_color=MUTED, wraplength=520, justify="left").grid(
-            row=2, column=0, columnspan=3, sticky="w", padx=16, pady=(0, 10))
+        # ---- sistem entegrasyonu ----
+        card = Card(body, "Sistem entegrasyonu", 2)
+        self.ctx_sw = card.switch_row("Sağ tık menüsüne 'Auxy ile tara' ekle", self._toggle_context,
+                                      "Dosya veya klasöre sağ tıklayıp tara. Yalnızca bu kullanıcı için, yönetici izni gerekmez.")
+        self.autostart_sw = card.switch_row("Windows açılışında başlat", self._toggle_autostart,
+                                            "Tray ajanı oturum açılışından 30 sn sonra, UAC sorulmadan başlar. "
+                                            "Kurmak ve kaldırmak yönetici izni ister.")
 
         ctk.CTkLabel(body, text=f"AuxySecurity {__version__}   |   Yönetici: "
                                 f"{'evet' if system.is_admin() else 'hayır'}", text_color=MUTED).grid(
-            row=4, column=0, sticky="w", pady=(4, 0))
+            row=3, column=0, sticky="w", pady=(4, 0))
         self.load_into_widgets()
-
-    # ---- yapi ----
-    @staticmethod
-    def _card(master, title: str, row: int) -> ctk.CTkFrame:
-        c = ctk.CTkFrame(master, corner_radius=14, border_width=1)
-        c.grid(row=row, column=0, sticky="ew", pady=(0, 12), padx=(0, 6))
-        c.columnconfigure(0, weight=1)
-        ctk.CTkLabel(c, text=title, font=ctk.CTkFont(size=15, weight="bold"), anchor="w").grid(
-            row=0, column=0, columnspan=3, sticky="w", padx=16, pady=(10, 4))
-        return c
-
-    @staticmethod
-    def _switch(card, row: int, label: str, command) -> ctk.CTkSwitch:
-        ctk.CTkLabel(card, text=label, anchor="w").grid(row=row, column=0, sticky="w", padx=16, pady=6)
-        sw = ctk.CTkSwitch(card, text="", width=46, command=command)
-        sw.grid(row=row, column=2, padx=16)
-        return sw
-
     # ---- yukle / kaydet ----
     def load_into_widgets(self) -> None:
         c = self.cfg = cfgmod.load()

@@ -7,7 +7,7 @@ Hafif bir tray ajanı · şifreli karantina kasası · tarama yöneticisi · gü
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Platform](https://img.shields.io/badge/Windows-11-0078D4?logo=windows11&logoColor=white)
-![Tests](https://img.shields.io/badge/testler-448%20geçiyor-2e9e5b)
+![Tests](https://img.shields.io/badge/testler-453%20geçiyor-2e9e5b)
 ![Kapsam](https://img.shields.io/badge/kapsam-%25_87-2e9e5b)
 ![Durum](https://img.shields.io/badge/durum-geliştirme%20(v0.x)-d9932b)
 
@@ -216,7 +216,7 @@ Gerçek makinede ölçüldü (Windows 11):
 ## Geliştirme
 
 ```powershell
-pytest -q                           # 448 test, ~40 sn (GUI testleri dahil), kapsam %87
+pytest -q                           # 453 test, ~40 sn (GUI testleri dahil), kapsam %87
 python -m auxy doctor               # ortam tanısı
 python scripts\unused_imports.py src
 ```
@@ -235,7 +235,7 @@ AuxySecurity/
 │  ├─ agent/     tray ajanı, klasör izleme, olay aboneliği, USB, zamanlayıcı
 │  ├─ gui/       pencere, sayfalar (pano, güvenlik, ağ güvenliği, tarama, karantina, ayarlar)
 │  └─ __main__.py   CLI
-├─ tests/        pytest (448 test)
+├─ tests/        pytest (453 test)
 ├─ scripts/      gerçek makine testleri, ölçümler, ekran görüntüsü üretimi
 ├─ docs/         milestone dokümanları, mimari kararlar, ekran görüntüleri
 ├─ PLAN.md       kapsamlı proje planı

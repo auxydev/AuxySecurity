@@ -454,3 +454,69 @@ def test_theme_applied_and_assets_render(app):
     assert app.nav_buttons["network"].cget("fg_color") == theme.ACCENT
     assert app.nav_buttons["scan"].cget("fg_color") == "transparent"
     app.show("dashboard")
+
+
+# ---------------- sade panel (v1.2) ----------------
+def test_collapsible_starts_closed_and_toggles(app):
+    from auxy.gui.widgets import Collapsible
+
+    c = Collapsible(app, "Gelişmiş")
+    assert not c.is_open and c.btn.cget("text").startswith("▸") and not c.body.winfo_manager()
+    c.toggle()
+    assert c.is_open and c.btn.cget("text").startswith("▾") and c.body.winfo_manager() == "grid"
+    c.destroy()
+
+
+def test_dashboard_tiles_show_plain_status(app):
+    from datetime import datetime, timezone
+
+    from auxy.core import defender
+
+    status = dict(AMServiceEnabled=True, AntivirusEnabled=True, RealTimeProtectionEnabled=True,
+                  BehaviorMonitorEnabled=True, IsTamperProtected=False, AntivirusSignatureVersion="1.2.3",
+                  AMProductVersion="4.18", AntivirusSignatureLastUpdated=datetime.now(timezone.utc).replace(tzinfo=None))
+    st = defender.DefenderStatus(status=status, prefs={"MAPSReporting": 2, "DisableRealtimeMonitoring": False,
+                                                       "PUAProtection": 1, "EnableControlledFolderAccess": 0,
+                                                       "EnableNetworkProtection": 1})
+    d = app.dashboard
+    d.update_view(st, True)
+    t = d.tiles
+    assert t["realtime"].value.cget("text") == "Açık" and t["signature"].value.cget("text") == "Güncel"
+    assert t["tamper"].value.cget("text") == "Kapalı" and t["product"].value.cget("text") == "4.18"
+    d.update_view(defender.DefenderStatus(status={**status, "RealTimeProtectionEnabled": False}, prefs=st.prefs), True)
+    assert t["realtime"].value.cget("text") == "KAPALI" and "korunmuyor" in t["realtime"].note.cget("text")
+
+
+def test_dashboard_hero_buttons_open_scan_page(app, monkeypatch):
+    started = []
+    scan_page = app.pages["scan"]
+    monkeypatch.setattr(scan_page, "start", lambda kind: started.append(kind))
+    monkeypatch.setattr(scan_page, "update_sigs", lambda: started.append("sigs"))
+    app.quick_scan()
+    app.update_signatures()
+    from auxy.core import scan
+
+    assert started == [scan.QUICK, "sigs"]
+    app.show("dashboard")
+
+
+def test_scan_page_keeps_four_start_buttons_in_order(app):
+    texts = [b.cget("text") for b in app.pages["scan"].start_buttons]
+    assert texts == ["Başlat", "Başlat", "Klasör seç…", "Dosya seç…"]
+
+
+def test_every_page_has_title_and_subtitle(app):
+    import customtkinter as ctk
+
+    for key, title in (("security", "Güvenlik"), ("network", "Ağ güvenliği"), ("scan", "Tarama"),
+                       ("settings", "Ayarlar"), ("quarantine", "Karantina")):
+        labels = []
+
+        def walk(w):
+            for ch in w.winfo_children():
+                if isinstance(ch, ctk.CTkLabel):
+                    labels.append(ch.cget("text"))
+                walk(ch)
+
+        walk(app.pages[key])
+        assert title in labels, key

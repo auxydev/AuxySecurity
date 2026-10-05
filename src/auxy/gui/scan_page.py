@@ -10,6 +10,7 @@ import customtkinter as ctk
 
 from auxy.core import actions, scan, threats
 from auxy.gui import theme
+from auxy.gui.widgets import page_header
 
 MUTED = theme.MUTED
 
@@ -40,54 +41,68 @@ class ScanPage(ctk.CTkFrame):
         self.rowconfigure(5, weight=1)
         self.rowconfigure(7, weight=1)
 
-        ctk.CTkLabel(self, text="Tarama", font=ctk.CTkFont(size=22, weight="bold")).grid(
-            row=0, column=0, sticky="w", pady=(0, 10))
-
-        bar = ctk.CTkFrame(self, fg_color="transparent")
-        bar.grid(row=1, column=0, sticky="ew")
-        self.start_buttons = [
-            ctk.CTkButton(bar, text="Hızlı tarama", width=120,
-                          command=lambda: self.start(scan.QUICK)),
-            ctk.CTkButton(bar, text="Tam tarama", width=120, command=lambda: self.start(scan.FULL)),
-            ctk.CTkButton(bar, text="Klasör tara…", width=120, command=self.pick_folder),
-            ctk.CTkButton(bar, text="Dosya tara…", width=120, command=self.pick_file),
-        ]
-        for b in self.start_buttons:
-            b.pack(side="left", padx=(0, 8))
-        self.cancel_btn = ctk.CTkButton(bar, text="İptal", width=80, fg_color=theme.BTN_BAD,
-                                        hover_color=theme.BTN_BAD_HOVER, state="disabled", command=self.cancel)
-        self.cancel_btn.pack(side="left", padx=(8, 0))
-        self.sig_btn = ctk.CTkButton(bar, text="İmzaları güncelle", width=140,
-                                     fg_color="transparent", border_width=1,
-                                     text_color=theme.TEXT, command=self.update_sigs)
+        head0 = page_header(self, "Tarama", "Cihazını virüs ve zararlı yazılımlara karşı tara. "
+                                            "Dosyaları pencereye sürükleyip bırakarak da tarayabilirsin.")
+        self.sig_btn = ctk.CTkButton(head0.actions, text="İmzaları güncelle", width=150, fg_color="transparent",
+                                     border_width=1, text_color=theme.TEXT, hover_color=theme.SURFACE_ALT,
+                                     command=self.update_sigs)
         self.sig_btn.pack(side="right")
 
-        self.progress = ctk.CTkProgressBar(self, mode="determinate")
-        self.progress.grid(row=2, column=0, sticky="ew", pady=(12, 4))
+        # ---- tarama turleri: uc secenek kutusu
+        tiles = ctk.CTkFrame(self, fg_color="transparent")
+        tiles.grid(row=1, column=0, sticky="ew")
+        self.start_buttons = []
+        specs = (("Hızlı tarama", "Sık kullanılan konumlar. Genelde 1-2 dakika.",
+                  [("Başlat", lambda: self.start(scan.QUICK))]),
+                 ("Tam tarama", "Tüm sürücüler. Uzun sürebilir.", [("Başlat", lambda: self.start(scan.FULL))]),
+                 ("Özel tarama", "Seçtiğin klasör ya da dosya.",
+                  [("Klasör seç…", self.pick_folder), ("Dosya seç…", self.pick_file)]))
+        for i, (title, desc, buttons) in enumerate(specs):
+            tiles.columnconfigure(i, weight=1, uniform="scan")
+            box = ctk.CTkFrame(tiles, corner_radius=14, border_width=1)
+            box.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 5, 0 if i == 2 else 5))
+            ctk.CTkLabel(box, text=title, font=ctk.CTkFont(size=16, weight="bold"), anchor="w").pack(
+                anchor="w", padx=16, pady=(14, 0))
+            ctk.CTkLabel(box, text=desc, anchor="w", justify="left", text_color=theme.MUTED, wraplength=190,
+                         font=ctk.CTkFont(size=12)).pack(anchor="w", padx=16, pady=(2, 10))
+            row = ctk.CTkFrame(box, fg_color="transparent")
+            row.pack(anchor="w", padx=16, pady=(0, 14))
+            for text, cmd in buttons:
+                b = ctk.CTkButton(row, text=text, width=96 if len(buttons) > 1 else 110, height=34, command=cmd)
+                b.pack(side="left", padx=(0, 6))
+                self.start_buttons.append(b)
+
+        # ---- ilerleme / durum
+        prog = ctk.CTkFrame(self, fg_color="transparent")
+        prog.grid(row=2, column=0, sticky="ew", pady=(12, 0))
+        prog.columnconfigure(0, weight=1)
+        self.progress = ctk.CTkProgressBar(prog, mode="determinate")
+        self.progress.grid(row=0, column=0, sticky="ew", pady=(0, 4))
         self.progress.set(0)
         self.progress.grid_remove()  # bosta gorunmesin (customtkinter sol uc noktasi kozmetigi)
-        self.status = ctk.CTkLabel(self, text="Hazır.", anchor="w", justify="left", wraplength=640)
-        self.status.grid(row=3, column=0, sticky="w")
+        self.status = ctk.CTkLabel(prog, text="Hazır.", anchor="w", justify="left", wraplength=620,
+                                   text_color=theme.MUTED)
+        self.status.grid(row=1, column=0, sticky="w")
+        self.cancel_btn = ctk.CTkButton(prog, text="Taramayı iptal et", width=140, height=30, fg_color=theme.BTN_BAD,
+                                        hover_color=theme.BTN_BAD_HOVER, state="disabled", command=self.cancel)
+        self.cancel_btn.grid(row=0, column=1, rowspan=2, padx=(8, 0))
 
         head = ctk.CTkFrame(self, fg_color="transparent")
-        head.grid(row=4, column=0, sticky="ew", pady=(14, 4))
-        ctk.CTkLabel(head, text="Tehditler", font=ctk.CTkFont(size=15, weight="bold")).pack(
-            side="left")
-        ctk.CTkButton(head, text="Yenile", width=70, height=24, command=self.refresh_lists).pack(
-            side="right")
-        self.clean_btn = ctk.CTkButton(head, text="Etkin tehditleri temizle (Defender)", width=230, height=24,
+        head.grid(row=4, column=0, sticky="ew", pady=(16, 6))
+        ctk.CTkLabel(head, text="Bulunan tehditler", font=ctk.CTkFont(size=16, weight="bold")).pack(side="left")
+        ctk.CTkButton(head, text="Yenile", width=70, height=28, command=self.refresh_lists).pack(side="right")
+        self.clean_btn = ctk.CTkButton(head, text="Etkin tehditleri temizle (Defender)", width=230, height=28,
                                        fg_color=theme.BTN_BAD, hover_color=theme.BTN_BAD_HOVER, command=self.clean_active)
         # yalnizca etkin tehdit varsa gorunur (_show_threats)
-        self.threat_box = ctk.CTkScrollableFrame(self, height=140, corner_radius=8)
+        self.threat_box = ctk.CTkScrollableFrame(self, height=120, corner_radius=14, border_width=1)
         self.threat_box.grid(row=5, column=0, sticky="nsew")
         self.threat_box.columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(self, text="Tarama geçmişi", font=ctk.CTkFont(size=15, weight="bold"),
-                     anchor="w").grid(row=6, column=0, sticky="w", pady=(14, 4))
-        self.history_box = ctk.CTkTextbox(self, height=110, wrap="none")
+        ctk.CTkLabel(self, text="Tarama geçmişi", font=ctk.CTkFont(size=16, weight="bold"),
+                     anchor="w").grid(row=6, column=0, sticky="w", pady=(16, 6))
+        self.history_box = ctk.CTkTextbox(self, height=100, wrap="none")
         self.history_box.grid(row=7, column=0, sticky="nsew")
         self.refresh_lists()
-
     # ---- listeler ----
     def refresh_lists(self) -> None:
         self.app.worker.submit(threats.read_detections, self._show_threats)

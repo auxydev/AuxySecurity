@@ -9,6 +9,7 @@ import customtkinter as ctk
 
 from auxy.core import actions, winsec
 from auxy.gui import theme
+from auxy.gui.widgets import Card, page_header
 
 MUTED = theme.MUTED
 GOOD, BAD = theme.GOOD, theme.BAD
@@ -34,31 +35,6 @@ def format_product(p: winsec.SecurityProduct) -> str:
     return f"{p.category}: {p.name}  ({state}, {fresh})"
 
 
-class Card(ctk.CTkFrame):
-    def __init__(self, master, title: str, row: int):
-        super().__init__(master, corner_radius=14, border_width=1)
-        self.grid(row=row, column=0, sticky="ew", pady=(0, 12), padx=(0, 6))
-        self.columnconfigure(0, weight=1)
-        ctk.CTkLabel(self, text=title, font=ctk.CTkFont(size=15, weight="bold"), anchor="w").grid(
-            row=0, column=0, columnspan=3, sticky="w", padx=16, pady=(10, 4))
-        self.next_row = 1
-
-    def line(self, text: str = "", color=None) -> ctk.CTkLabel:
-        lbl = ctk.CTkLabel(self, text=text, anchor="w", justify="left", wraplength=560,
-                           text_color=color or theme.TEXT)
-        lbl.grid(row=self.next_row, column=0, columnspan=3, sticky="w", padx=16, pady=2)
-        self.next_row += 1
-        return lbl
-
-    def switch_row(self, label: str, command) -> ctk.CTkSwitch:
-        ctk.CTkLabel(self, text=label, anchor="w").grid(
-            row=self.next_row, column=0, sticky="w", padx=16, pady=5)
-        sw = ctk.CTkSwitch(self, text="", width=46, command=command)
-        sw.grid(row=self.next_row, column=2, padx=(0, 16))
-        self.next_row += 1
-        return sw
-
-
 class SecurityPage(ctk.CTkFrame):
     def __init__(self, master, app):
         super().__init__(master, fg_color="transparent")
@@ -66,69 +42,64 @@ class SecurityPage(ctk.CTkFrame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
 
-        head = ctk.CTkFrame(self, fg_color="transparent")
-        head.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        ctk.CTkLabel(head, text="Güvenlik", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
-        ctk.CTkButton(head, text="Yenile", width=70, command=self.refresh).pack(side="right")
-        self.message = ctk.CTkLabel(head, text="", anchor="e", wraplength=420, justify="right")
-        self.message.pack(side="right", padx=12)
+        head = page_header(self, "Güvenlik", "Windows'un yerleşik koruma özelliklerini tek yerden yönet.")
+        ctk.CTkButton(head.actions, text="Yenile", width=80, command=self.refresh).pack(side="right")
+        self.message = head.message
+        self.message.pack(side="right", padx=(0, 12))  # butonlarin soluna
 
         body = ctk.CTkScrollableFrame(self, fg_color="transparent")
         body.grid(row=1, column=0, sticky="nsew")
         body.columnconfigure(0, weight=1)
 
         # Genel durum
-        c = Card(body, "Genel durum (Windows Güvenlik Merkezi)", 0)
+        c = Card(body, "Genel durum", 0, "Windows Güvenlik Merkezi'ne kayıtlı koruma ürünleri.")
         self.products_lbl = c.line("Okunuyor…")
 
         self.sw: dict[str, ctk.CTkSwitch] = {}
 
         # SmartScreen
-        c = Card(body, "Uygulama ve tarayıcı denetimi (SmartScreen)", 1)
-        ctk.CTkLabel(c, text="Uygulamalar ve dosyalar", anchor="w").grid(
-            row=c.next_row, column=0, sticky="w", padx=16, pady=5)
-        self.ss_menu = ctk.CTkOptionMenu(c, values=list(SMARTSCREEN_TR), width=110,
-                                         command=self._set_smartscreen)
-        self.ss_menu.grid(row=c.next_row, column=2, padx=(0, 16))
-        c.next_row += 1
+        c = Card(body, "Uygulama ve web koruması", 1, "SmartScreen, tanınmayan ve zararlı olabilecek indirmeleri uyarır.")
+        self.ss_menu = c.menu_row("Uygulamalar ve dosyalar", list(SMARTSCREEN_TR), self._set_smartscreen,
+                                  "İnternetten indirilen programlar çalıştırılmadan önce denetlenir.", 130)
         self.sw["smartscreen_store"] = c.switch_row("Microsoft Store uygulamaları",
-                                                    lambda: self._toggle("smartscreen_store"))
+                                                    lambda: self._toggle("smartscreen_store"),
+                                                    "Store uygulamalarının açtığı web içeriğini denetler.")
 
         # Cihaz guvenligi
-        c = Card(body, "Cihaz güvenliği", 2)
+        c = Card(body, "Cihaz güvenliği", 2, "Donanım tabanlı korumalar.")
         self.device_lbl = c.line("Okunuyor…")
-        self.sw["hvci"] = c.switch_row("Çekirdek yalıtımı: Bellek bütünlüğü",
-                                       lambda: self._toggle("hvci"))
+        self.sw["hvci"] = c.switch_row("Bellek bütünlüğü", lambda: self._toggle("hvci"),
+                                       "Çekirdeği zararlı kodlardan korur. Değişiklik yeniden başlatınca etkinleşir.")
         self.hvci_note = c.line(winsec.WINSEC_SETTINGS["hvci"].hint, MUTED)
-        row = ctk.CTkFrame(c, fg_color="transparent")
-        row.grid(row=c.next_row, column=0, columnspan=3, sticky="ew", padx=16, pady=(2, 10))
-        c.next_row += 1
-        ctk.CTkButton(row, text="TPM bilgisini oku (yönetici)", width=200, height=28,
+        row = c.button_bar()
+        ctk.CTkButton(row, text="TPM bilgisini oku (yönetici)", width=210, height=30,
                       command=self.read_tpm).pack(side="left")
         self.tpm_lbl = ctk.CTkLabel(row, text="", anchor="w", justify="left", wraplength=360)
         self.tpm_lbl.pack(side="left", padx=10)
 
-        # Exploit protection (salt-okunur)
-        c = Card(body, "Exploit protection (sistem, salt-okunur)", 3)
-        self.exploit_lbl = c.line("Okunuyor…")
-        c.line("Windows tek tek 'varsayılana dön' sunmadığı için bu bölümde değişiklik yapılmaz.", MUTED)
-
-        # Dislamalar
-        c = Card(body, "Defender dışlamaları", 4)
-        c.line("Dışlanan konumlar taranmaz. Okumak ve değiştirmek yönetici izni (UAC) ister.", MUTED)
-        bar = ctk.CTkFrame(c, fg_color="transparent")
-        bar.grid(row=c.next_row, column=0, columnspan=3, sticky="ew", padx=16, pady=4)
-        c.next_row += 1
+        # Gelismis (varsayilan kapali)
+        c = Card(body, "Gelişmiş", 3, "Teknik ayrıntılar. Çoğu kullanıcının buraya bakması gerekmez.")
+        ex = c.collapsible("Exploit protection (sistem, salt-okunur)")
+        self.exploit_lbl = ctk.CTkLabel(ex.body, text="Okunuyor…", anchor="w", justify="left")
+        self.exploit_lbl.grid(row=0, column=0, sticky="w", padx=12, pady=(2, 2))
+        ctk.CTkLabel(ex.body, text="Windows tek tek 'varsayılana dön' sunmadığı için bu bölümde değişiklik yapılmaz.",
+                     anchor="w", text_color=MUTED, wraplength=560, justify="left").grid(
+            row=1, column=0, sticky="w", padx=12, pady=(0, 8))
+        excl = c.collapsible("Defender dışlamaları")
+        ctk.CTkLabel(excl.body, text="Dışlanan konumlar taranmaz. Okumak ve değiştirmek yönetici izni (UAC) ister.",
+                     anchor="w", text_color=MUTED, wraplength=560, justify="left").grid(
+            row=0, column=0, sticky="w", padx=12, pady=(2, 4))
+        bar = ctk.CTkFrame(excl.body, fg_color="transparent")
+        bar.grid(row=1, column=0, sticky="ew", padx=12, pady=4)
         ctk.CTkButton(bar, text="Listele", width=70, command=self.load_exclusions).pack(side="left")
         ctk.CTkButton(bar, text="Klasör ekle…", width=100, command=self.add_folder).pack(side="left", padx=6)
         ctk.CTkButton(bar, text="Uzantı ekle…", width=100, command=lambda: self.add_text("extension")).pack(side="left")
         ctk.CTkButton(bar, text="İşlem ekle…", width=100, command=lambda: self.add_text("process")).pack(
             side="left", padx=6)
-        self.excl_frame = ctk.CTkFrame(c, fg_color="transparent")
-        self.excl_frame.grid(row=c.next_row, column=0, columnspan=3, sticky="ew", padx=16, pady=(0, 10))
+        self.excl_frame = ctk.CTkFrame(excl.body, fg_color="transparent")
+        self.excl_frame.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 10))
         self.excl_frame.columnconfigure(0, weight=1)
         self._set_excl_note("(Listelemek için 'Listele'ye bas.)")
-
     def _set_excl_note(self, text: str) -> None:
         """Dislama alanini temizleyip tek satirlik not gosterir. Etiketi HER SEFERINDE yeniden olusturur:
         liste yenilenirken eski etiket yok ediliyordu ve ikinci 'Listele' TclError veriyordu."""

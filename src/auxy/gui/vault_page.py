@@ -10,6 +10,7 @@ import customtkinter as ctk
 from auxy.core import actions
 from auxy.core.vault import MIN_PASSWORD_LEN, Vault, VaultItem, import_key_file
 from auxy.gui import theme
+from auxy.gui.widgets import page_header
 
 MUTED = theme.MUTED
 _vault: Vault | None = None
@@ -93,17 +94,16 @@ class VaultPage(ctk.CTkFrame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(3, weight=1)
 
-        head = ctk.CTkFrame(self, fg_color="transparent")
-        head.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-        ctk.CTkLabel(head, text="Karantina", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
-        self.mode_btn = ctk.CTkSegmentedButton(head, values=[MODE_VAULT, MODE_DEFENDER], command=self._set_mode)
+        head = page_header(self, "Karantina", "Şüpheli dosyaları güvenle sakla; gerekirse geri yükle.")
+        self.mode_btn = ctk.CTkSegmentedButton(head, values=[MODE_VAULT, MODE_DEFENDER], command=self._set_mode,
+                                               height=32)
         self.mode_btn.set(MODE_VAULT)
-        self.mode_btn.pack(side="left", padx=16)
-        self.refresh_btn = ctk.CTkButton(head, text="Yenile", width=70, command=self.refresh)
+        self.mode_btn.grid(row=1, column=0, sticky="w", pady=(10, 0))
+        self.refresh_btn = ctk.CTkButton(head.actions, text="Yenile", width=80, command=self.refresh)
         self.refresh_btn.pack(side="right")
-        self.folder_btn = ctk.CTkButton(head, text="Klasör ekle…", width=100, command=self.add_folder)
+        self.folder_btn = ctk.CTkButton(head.actions, text="Klasör ekle…", width=110, command=self.add_folder)
         self.folder_btn.pack(side="right", padx=(0, 8))
-        self.file_btn = ctk.CTkButton(head, text="Dosya ekle…", width=100, command=self.add_file)
+        self.file_btn = ctk.CTkButton(head.actions, text="Dosya ekle…", width=110, command=self.add_file)
         self.file_btn.pack(side="right", padx=(0, 8))
         keys = ctk.CTkFrame(self, fg_color="transparent")
         keys.grid(row=4, column=0, sticky="w", pady=(8, 0))

@@ -8,7 +8,8 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 
 from auxy.core import actions, firewall, netservices, winsec
-from auxy.gui.security_page import BAD, CONFIRM_OFF, GOOD, MUTED, Card
+from auxy.gui.security_page import BAD, CONFIRM_OFF, GOOD, MUTED
+from auxy.gui.widgets import Card, page_header
 from auxy.gui import theme
 
 ORANGE = theme.WARN
@@ -35,103 +36,97 @@ class NetworkPage(ctk.CTkFrame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
 
-        head = ctk.CTkFrame(self, fg_color="transparent")
-        head.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        ctk.CTkLabel(head, text="Ağ güvenliği", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
-        ctk.CTkButton(head, text="Yenile", width=70, command=self.refresh).pack(side="right")
-        self.message = ctk.CTkLabel(head, text="", anchor="e", wraplength=420, justify="right")
-        self.message.pack(side="right", padx=12)
+        head = page_header(self, "Ağ güvenliği", "İnternet bağlantını koruyan ve engelleri aşan araçlar.")
+        ctk.CTkButton(head.actions, text="Yenile", width=80, command=self.refresh).pack(side="right")
+        self.message = head.message
+        self.message.pack(side="right", padx=(0, 12))  # butonlarin soluna
 
         body = ctk.CTkScrollableFrame(self, fg_color="transparent")
         body.grid(row=1, column=0, sticky="nsew")
         body.columnconfigure(0, weight=1)
 
         # ---- GoodbyeDPI
-        c = Card(body, "GoodbyeDPI (DPI engeli aşma hizmeti)", 0)
-        row = ctk.CTkFrame(c, fg_color="transparent")
-        row.grid(row=c.next_row, column=0, columnspan=3, sticky="ew", padx=16, pady=(0, 4))
-        c.next_row += 1
-        self.gdpi_state = ctk.CTkLabel(row, text="Okunuyor…", font=ctk.CTkFont(size=16, weight="bold"))
+        c = Card(body, "GoodbyeDPI", 0, "Operatör kaynaklı erişim engellerini aşmaya yardımcı olan arka plan hizmeti.")
+        row = c.button_bar(pady=(0, 4))
+        self.gdpi_state = ctk.CTkLabel(row, text="Okunuyor…", font=ctk.CTkFont(size=18, weight="bold"))
         self.gdpi_state.pack(side="left")
-        self.gdpi_stop_btn = ctk.CTkButton(row, text="Kapat", width=80, fg_color=theme.BTN_BAD, hover_color=theme.BTN_BAD_HOVER,
+        self.gdpi_stop_btn = ctk.CTkButton(row, text="Kapat", width=90, height=34, fg_color=theme.BTN_BAD,
+                                           hover_color=theme.BTN_BAD_HOVER,
                                            command=lambda: self.gdpi_op("gdpi-stop"))
         self.gdpi_stop_btn.pack(side="right")
-        self.gdpi_start_btn = ctk.CTkButton(row, text="Başlat", width=80, command=lambda: self.gdpi_op("gdpi-start"))
+        self.gdpi_start_btn = ctk.CTkButton(row, text="Başlat", width=90, height=34,
+                                            command=lambda: self.gdpi_op("gdpi-start"))
         self.gdpi_start_btn.pack(side="right", padx=(0, 8))
-        self.gdpi_detail = c.line("", MUTED)
-        self.gdpi_auto = c.switch_row("Windows ile otomatik başlasın", self._toggle_gdpi_auto)
-        self.gdpi_warn = c.line("", ORANGE)
-        self.gdpi_fix_btn = ctk.CTkButton(c, text="Güvenli konuma taşı / kur", width=190, height=28,
+        self.gdpi_auto = c.switch_row("Windows ile otomatik başlasın", self._toggle_gdpi_auto,
+                                      "Bilgisayar açıldığında hizmet kendiliğinden çalışır.")
+        self.gdpi_warn = c.line("", theme.WARN)
+        self.gdpi_fix_btn = ctk.CTkButton(c, text="Güvenli konuma taşı / kur", width=190, height=30,
                                           command=lambda: self.gdpi_op("gdpi-install"))
-        self.gdpi_fix_btn.grid(row=c.next_row, column=0, sticky="w", padx=16, pady=(0, 10))
+        self.gdpi_fix_btn.grid(row=c.next_row, column=0, sticky="w", padx=18, pady=(0, 10))
         c.next_row += 1
         self.gdpi_fix_btn.grid_remove()
+        det = c.collapsible("Ayrıntılar")
+        self.gdpi_detail = ctk.CTkLabel(det.body, text="", anchor="w", justify="left", text_color=MUTED,
+                                        wraplength=560)
+        self.gdpi_detail.grid(row=0, column=0, sticky="w", padx=12, pady=(2, 8))
 
         # ---- WARP
-        c = Card(body, "Cloudflare WARP", 1)
-        row = ctk.CTkFrame(c, fg_color="transparent")
-        row.grid(row=c.next_row, column=0, columnspan=3, sticky="ew", padx=16, pady=(0, 4))
-        c.next_row += 1
-        self.warp_state = ctk.CTkLabel(row, text="Okunuyor…", font=ctk.CTkFont(size=16, weight="bold"))
+        c = Card(body, "Cloudflare WARP", 1, "Bağlantını Cloudflare üzerinden şifreler ve DNS'i korur.")
+        row = c.button_bar(pady=(0, 4))
+        self.warp_state = ctk.CTkLabel(row, text="Okunuyor…", font=ctk.CTkFont(size=18, weight="bold"))
         self.warp_state.pack(side="left")
-        self.warp_off_btn = ctk.CTkButton(row, text="Bağlantıyı kes", width=110, fg_color=theme.BTN_BAD, hover_color=theme.BTN_BAD_HOVER,
+        self.warp_off_btn = ctk.CTkButton(row, text="Bağlantıyı kes", width=120, height=34, fg_color=theme.BTN_BAD,
+                                          hover_color=theme.BTN_BAD_HOVER,
                                           command=lambda: self.warp_op("warp-disconnect"))
         self.warp_off_btn.pack(side="right")
-        self.warp_on_btn = ctk.CTkButton(row, text="Bağlan", width=80, command=lambda: self.warp_op("warp-connect"))
+        self.warp_on_btn = ctk.CTkButton(row, text="Bağlan", width=90, height=34,
+                                         command=lambda: self.warp_op("warp-connect"))
         self.warp_on_btn.pack(side="right", padx=(0, 8))
-        self.warp_install_btn = ctk.CTkButton(row, text="WARP'ı kur", width=100, command=self.install_warp)
+        self.warp_install_btn = ctk.CTkButton(row, text="WARP'ı kur", width=110, height=34, command=self.install_warp)
         self.warp_install_btn.pack(side="right")
         self.warp_install_btn.pack_forget()  # kurulu degilse okuma sonrasi gosterilir
         self.warp_detail = c.line("", MUTED)
-        ctk.CTkLabel(c, text="Bağlantı protokolü", anchor="w").grid(row=c.next_row, column=0, sticky="w", padx=16, pady=5)
-        self.proto_menu = ctk.CTkOptionMenu(c, values=list(WARP_PROTO_BACK), width=230, command=self._set_protocol)
-        self.proto_menu.grid(row=c.next_row, column=2, padx=(0, 16))
-        c.next_row += 1
-        ctk.CTkLabel(c, text="Çalışma kipi", anchor="w").grid(row=c.next_row, column=0, sticky="w", padx=16, pady=5)
-        self.mode_menu = ctk.CTkOptionMenu(c, values=list(WARP_MODE_BACK), width=230, command=self._set_mode)
-        self.mode_menu.grid(row=c.next_row, column=2, padx=(0, 16), pady=(0, 10))
-        c.next_row += 1
+        self.proto_menu = c.menu_row("Bağlantı protokolü", list(WARP_PROTO_BACK), self._set_protocol,
+                                     "MASQUE yeni ve hızlıdır; WireGuard eski ama yaygın uyumludur.", 240)
+        self.mode_menu = c.menu_row("Çalışma kipi", list(WARP_MODE_BACK), self._set_mode,
+                                    "Tüm trafiği mi yoksa yalnızca DNS'i mi koruyacağını seçer.", 240)
 
-        # ---- Guvenlik duvari (Guvenlik sayfasindan buraya tasindi)
-        c = Card(body, "Güvenlik duvarı", 2)
+        # ---- Guvenlik duvari
+        c = Card(body, "Güvenlik duvarı", 2, "Bilgisayarına ağdan gelen bağlantıları denetler.")
         self.sw: dict[str, ctk.CTkSwitch] = {}
+        names = {"fw_domain": ("Etki alanı ağı", "Kurum/okul ağları."), "fw_private": ("Özel ağ", "Ev ve iş yerindeki güvendiğin ağlar."),
+                 "fw_public": ("Genel ağ", "Kafe, otel, havalimanı gibi herkese açık ağlar.")}
         for key in FW_KEYS:
-            self.sw[key] = c.switch_row(winsec.WINSEC_SETTINGS[key].label.split(": ")[1],
-                                        lambda k=key: self._toggle(k))
-        c.line("Gelen bağlantılar (varsayılan: Windows engeller; 'İzin ver' güvenliği azaltır):", MUTED)
+            self.sw[key] = c.switch_row(names[key][0], lambda k=key: self._toggle(k), names[key][1])
+        c.line("Gelen bağlantılar için varsayılan eylem ('İzin ver' güvenliği azaltır):", MUTED)
         self.inbound_menus: dict[str, ctk.CTkOptionMenu] = {}
         for key in FW_IN_KEYS:
-            ctk.CTkLabel(c, text=winsec.WINSEC_SETTINGS[key].label.split(": ")[1], anchor="w").grid(
-                row=c.next_row, column=0, sticky="w", padx=16, pady=4)
-            menu = ctk.CTkOptionMenu(c, values=list(INBOUND_TR), width=120,
-                                     command=lambda shown, k=key: self._set_inbound(k, shown))
-            menu.grid(row=c.next_row, column=2, padx=(0, 16), pady=4)
-            c.next_row += 1
-            self.inbound_menus[key] = menu
+            self.inbound_menus[key] = c.menu_row(winsec.WINSEC_SETTINGS[key].label.split(": ")[1], list(INBOUND_TR),
+                                                 lambda shown, k=key: self._set_inbound(k, shown), "", 130)
 
-        # ---- Guvenlik duvari kurallari
-        c = Card(body, "Güvenlik duvarı kuralları", 3)
-        c.line("Etkin, gelen bağlantıya izin veren kurallar. Pasifleştirmek geri alınabilir (silme yok). "
-               "Listelemek yönetici izni istemez; değiştirmek ister.", MUTED)
-        bar = ctk.CTkFrame(c, fg_color="transparent")
-        bar.grid(row=c.next_row, column=0, columnspan=3, sticky="ew", padx=16, pady=4)
-        c.next_row += 1
-        ctk.CTkButton(bar, text="Kuralları listele", width=120, command=self.load_rules).pack(side="left")
-        self.rule_filter = ctk.CTkEntry(bar, width=170, placeholder_text="Ara (ad / program)")
-        self.rule_filter.pack(side="left", padx=6)
+        # ---- Guvenlik duvari kurallari (gelismis)
+        c = Card(body, "Güvenlik duvarı kuralları", 3, "Hangi programların ağa erişebileceğini yönet.")
+        bar = c.button_bar(pady=(0, 6))
+        ctk.CTkButton(bar, text="Programı engelle…", width=150, command=self.block_program).pack(side="left")
+        ctk.CTkButton(bar, text="Kuralları listele", width=130, command=self.load_rules).pack(side="left", padx=8)
+        adv = c.collapsible("Kural listesi")
+        fbar = ctk.CTkFrame(adv.body, fg_color="transparent")
+        fbar.grid(row=0, column=0, sticky="ew", padx=12, pady=(2, 4))
+        self.rule_filter = ctk.CTkEntry(fbar, width=240, placeholder_text="Ara (ad / program)")
+        self.rule_filter.pack(side="left")
         self.rule_filter.bind("<KeyRelease>", lambda _e: self._render_rules())
-        ctk.CTkButton(bar, text="Programı engelle…", width=140, command=self.block_program).pack(side="right")
-        self.rules_note = c.line("(Listelemek için 'Kuralları listele'ye bas.)", MUTED)
-        self.rules_frame = ctk.CTkFrame(c, fg_color="transparent")
-        self.rules_frame.grid(row=c.next_row, column=0, columnspan=3, sticky="ew", padx=16, pady=(0, 6))
+        self.rules_note = ctk.CTkLabel(adv.body, text="('Kuralları listele'ye bas.)", text_color=MUTED, anchor="w",
+                                       justify="left", wraplength=560)
+        self.rules_note.grid(row=1, column=0, sticky="w", padx=12, pady=2)
+        self.rules_frame = ctk.CTkFrame(adv.body, fg_color="transparent")
+        self.rules_frame.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 6))
         self.rules_frame.columnconfigure(0, weight=1)
-        c.next_row += 1
+        self._rules_section = adv
         self.rules_cache: list[dict] = []
         self.blocks_cache: list[dict] = []
         self.gdpi: netservices.ServiceInfo | None = None
         self.warp: netservices.WarpInfo | None = None
         self._poll_token: object | None = None
-
     # ---- mesaj ----
     def say(self, text: str, error: bool = False) -> None:
         self.message.configure(text=text, text_color=BAD if error else theme.TEXT)
@@ -350,6 +345,8 @@ class NetworkPage(ctk.CTkFrame):
         self.app.worker.submit(read, self._rules_loaded)
 
     def _rules_loaded(self, res, exc) -> None:
+        if not self._rules_section.is_open:
+            self._rules_section.toggle()  # liste istendi: bolumu ac
         if exc is not None:
             self.rules_note.configure(text=str(exc), text_color=BAD)
             return

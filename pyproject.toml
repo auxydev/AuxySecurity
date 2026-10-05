@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "auxysecurity"
-version = "1.1.2"
+version = "1.2.0"
 description = "Windows Guvenlik (Microsoft Defender) icin kontrol paneli: hizli anahtarlar, tarama yoneticisi, sifreli karantina kasasi, guvenlik duvari ve SmartScreen kontrolu"
 readme = "README.md"
 keywords = ["windows", "defender", "security", "quarantine", "firewall", "tray"]

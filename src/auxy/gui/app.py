@@ -16,6 +16,7 @@ from auxy.gui.network_page import NetworkPage
 from auxy.gui.security_page import SecurityPage
 from auxy.gui.settings_page import SettingsPage
 from auxy.gui.vault_page import VaultPage
+from auxy.gui.widgets import Card, Tile
 from auxy.gui.worker import Worker
 
 theme.apply()  # pencere/widget olusturulmadan ONCE: modern tema (renk, yazi tipi, yuvarlak kartlar)
@@ -39,86 +40,94 @@ NAV = (
 )
 
 
+TOGGLE_HINTS = {
+    "realtime": "Dosyalar açılırken ve indirilirken sürekli taranır.",
+    "pua": "Reklam yazılımı gibi istenmeyen programları engeller.",
+    "cfa": "Fidye yazılımlarının belgelerini değiştirmesini engeller.",
+    "netprot": "Zararlı sitelere ve sunuculara bağlantıyı keser.",
+}
+MAPS_HINT = "Şüpheli dosyaları bulutta hızlıca denetler."
+
+
 class DashboardPage(ctk.CTkFrame):
     def __init__(self, master, app: App):
         super().__init__(master, fg_color="transparent")
         self.app = app
         self.columnconfigure(0, weight=1)
+        body = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        body.pack(fill="both", expand=True)
+        body.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.body = body
 
-        self.banner = ctk.CTkFrame(self, corner_radius=18, border_width=0)
-        self.banner.grid(row=0, column=0, sticky="ew", pady=(0, 14))
+        # ---- ust bant: durum + ana eylemler
+        self.banner = ctk.CTkFrame(body, corner_radius=18, border_width=0)
+        self.banner.grid(row=0, column=0, sticky="ew", pady=(0, 14), padx=(0, 6))
         self.banner.columnconfigure(1, weight=1)
         self.banner_icon = ctk.CTkLabel(self.banner, text="", image=theme.status_image(None, 0, 64), width=72)
-        self.banner_icon.grid(row=0, column=0, rowspan=2, padx=(18, 4), pady=16)
+        self.banner_icon.grid(row=0, column=0, rowspan=3, padx=(20, 4), pady=18)
         self.banner_title = ctk.CTkLabel(
-            self.banner, text="Durum okunuyor…", font=ctk.CTkFont(size=24, weight="bold"),
+            self.banner, text="Durum okunuyor…", font=ctk.CTkFont(size=26, weight="bold"),
             text_color="white", anchor="w",
         )
-        self.banner_title.grid(row=0, column=1, sticky="w", padx=(8, 18), pady=(18, 0))
+        self.banner_title.grid(row=0, column=1, sticky="w", padx=(8, 18), pady=(20, 0))
         self.banner_reasons = ctk.CTkLabel(
             self.banner, text="", justify="left", anchor="w", text_color="white", wraplength=560
         )
-        self.banner_reasons.grid(row=1, column=1, sticky="w", padx=(8, 18), pady=(0, 16))
-        self.admin_row = ctk.CTkFrame(self, fg_color="transparent")
-        self.admin_row.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        self.banner_reasons.grid(row=1, column=1, sticky="w", padx=(8, 18), pady=(2, 0))
+        actions_row = ctk.CTkFrame(self.banner, fg_color="transparent")
+        actions_row.grid(row=2, column=1, sticky="w", padx=(8, 18), pady=(12, 18))
+        white = dict(fg_color="white", hover_color="#e8edf6", text_color="#1e293b", height=34, corner_radius=10)
+        ctk.CTkButton(actions_row, text="Hızlı tarama başlat", width=150, command=app.quick_scan, **white).pack(side="left")
+        ctk.CTkButton(actions_row, text="İmzaları güncelle", width=140, command=app.update_signatures,
+                      **white).pack(side="left", padx=8)
+
+        self.admin_row = ctk.CTkFrame(body, fg_color="transparent")
+        self.admin_row.grid(row=1, column=0, sticky="ew", pady=(0, 10), padx=(0, 6))
         self.admin_label = ctk.CTkLabel(
-            self.admin_row, text="Ayar değiştirirken yönetici izni (UAC) istenecek.",
+            self.admin_row, text="Ayar değiştirirken Windows yönetici izni (UAC) isteyecek.",
             text_color=theme.MUTED,
         )
         self.admin_label.pack(side="left")
         self.admin_btn = ctk.CTkButton(
-            self.admin_row, text="Yönetici olarak yeniden aç", width=190,
+            self.admin_row, text="Yönetici olarak aç", width=150, height=30,
             command=app.restart_as_admin,
         )
         self.admin_btn.pack(side="right")
 
-        # Salt-okunur durum satirlari
-        info = ctk.CTkFrame(self, corner_radius=14, border_width=1)
-        info.grid(row=2, column=0, sticky="ew", pady=(0, 12))
-        info.columnconfigure(1, weight=1)
+        # ---- ozet kutulari
+        tiles = ctk.CTkFrame(body, fg_color="transparent")
+        tiles.grid(row=2, column=0, sticky="ew", pady=(0, 14), padx=(0, 6))
+        self.tiles: dict[str, Tile] = {}
         self.info_values: dict[str, ctk.CTkLabel] = {}
-        rows = (
-            ("tamper", "Tamper Protection"),
-            ("signature", "Virüs imzaları"),
-            ("product", "Defender sürümü"),
-        )
-        for i, (key, label) in enumerate(rows):
-            ctk.CTkLabel(info, text=label, anchor="w").grid(
-                row=i, column=0, sticky="w", padx=18, pady=5)
-            val = ctk.CTkLabel(info, text="—", anchor="e")
-            val.grid(row=i, column=1, sticky="e", padx=(8, 8), pady=5)
-            self.info_values[key] = val
+        for i, (key, caption) in enumerate((("realtime", "Gerçek zamanlı koruma"), ("signature", "Virüs imzaları"),
+                                            ("tamper", "Kurcalama koruması"), ("product", "Defender sürümü"))):
+            tiles.columnconfigure(i, weight=1, uniform="tiles")
+            tile = Tile(tiles, caption)
+            tile.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 5, 0 if i == 3 else 5))
+            self.tiles[key] = tile
+            self.info_values[key] = tile.value
 
-        # Hizli anahtarlar
-        ctk.CTkLabel(self, text="Hızlı anahtarlar", font=ctk.CTkFont(size=15, weight="bold"),
-                     anchor="w").grid(row=3, column=0, sticky="w", pady=(0, 4))
-        sw = ctk.CTkFrame(self, corner_radius=14, border_width=1)
-        sw.grid(row=4, column=0, sticky="ew")
-        sw.columnconfigure(0, weight=1)
+        # ---- hizli anahtarlar
+        card = Card(body, "Hızlı anahtarlar", 3, "Windows Güvenlik'teki ana korumaları buradan aç ya da kapat.")
         self.switches: dict[str, ctk.CTkSwitch] = {}
         self.switch_notes: dict[str, ctk.CTkLabel] = {}
-        for i, key in enumerate(TOGGLES):
+        for key in TOGGLES:
             s = SETTINGS[key]
-            ctk.CTkLabel(sw, text=s.label, anchor="w").grid(
-                row=i, column=0, sticky="w", padx=18, pady=8)
-            note = ctk.CTkLabel(sw, text="", text_color=theme.MUTED)
-            note.grid(row=i, column=1, padx=8)
-            switch = ctk.CTkSwitch(sw, text="", width=46)
+            title = card.label(s.label, TOGGLE_HINTS.get(key, ""))
+            note = ctk.CTkLabel(card, text="", text_color=theme.MUTED)
+            note.grid(row=card.next_row, column=1, padx=8)
+            switch = ctk.CTkSwitch(card, text="", width=46)
             switch.configure(command=lambda k=key, w=switch: app.toggle(k, w))
-            switch.grid(row=i, column=2, padx=(0, 18))
+            switch.grid(row=card.next_row, column=2, padx=(0, 18))
+            card.next_row += 1
             self.switches[key] = switch
             self.switch_notes[key] = note
+            del title
+        self.maps_menu = card.menu_row(SETTINGS["maps"].label, list(MAPS_TR), app.set_maps, MAPS_HINT, 130)
 
-        # Bulut koruma: uc seviyeli (Kapali / Temel / Gelismis)
-        row = len(TOGGLES)
-        ctk.CTkLabel(sw, text=SETTINGS["maps"].label, anchor="w").grid(
-            row=row, column=0, sticky="w", padx=18, pady=8)
-        self.maps_menu = ctk.CTkOptionMenu(
-            sw, values=list(MAPS_TR), width=130, command=app.set_maps)
-        self.maps_menu.grid(row=row, column=2, padx=(0, 18), pady=6)
-
-        self.message = ctk.CTkLabel(self, text="", anchor="w", wraplength=640, justify="left")
-        self.message.grid(row=5, column=0, sticky="w", pady=(12, 0))
+        self.message = ctk.CTkLabel(body, text="", anchor="w", wraplength=660, justify="left")
+        self.message.grid(row=4, column=0, sticky="w", pady=(4, 0))
 
     def update_view(self, st: defender.DefenderStatus, admin: bool) -> None:
         health = vm.evaluate(st)
@@ -127,14 +136,21 @@ class DashboardPage(ctk.CTkFrame):
         self.banner_reasons.configure(text="\n".join(f"• {r}" for r in health.reasons))
         self.banner_icon.configure(image=theme.status_image(health.level, health.badge, 64))
 
-        iv = self.info_values
         maps = SETTINGS["maps"].name_of(st.prefs["MAPSReporting"])
         self.maps_menu.set(VALUE_TR.get(maps, maps))
-        iv["tamper"].configure(text="Açık" if st.tamper_protected else "Kapalı")
+        rt = bool(st.status.get("RealTimeProtectionEnabled"))
+        self.tiles["realtime"].set("Açık" if rt else "KAPALI", theme.GOOD if rt else theme.BAD,
+                                   "Sürekli korunuyorsun" if rt else "Cihaz şu an korunmuyor")
         age = vm.signature_age_days(st)
         sig = st.status.get("AntivirusSignatureVersion") or "?"
-        iv["signature"].configure(text=sig if age is None else f"{sig}  ({age} gün önce)")
-        iv["product"].configure(text=str(st.status.get("AMProductVersion") or "?"))
+        fresh = age is not None and age < vm.SIGNATURE_WARN_DAYS
+        self.tiles["signature"].set("Güncel" if fresh else ("Eski" if age is not None else "?"),
+                                    theme.GOOD if fresh else theme.WARN,
+                                    f"{sig}" + ("" if age is None else f" • {age} gün önce"))
+        tamper = bool(st.tamper_protected)
+        self.tiles["tamper"].set("Açık" if tamper else "Kapalı", theme.GOOD if tamper else theme.WARN,
+                                 "" if tamper else "Güvenlik'ten açılır")
+        self.tiles["product"].set(str(st.status.get("AMProductVersion") or "?"), theme.TEXT, "Microsoft Defender")
 
         for key, switch in self.switches.items():
             name = SETTINGS[key].name_of(st.prefs[SETTINGS[key].pref_field])
@@ -150,7 +166,6 @@ class DashboardPage(ctk.CTkFrame):
     def show_message(self, text: str, error: bool = False) -> None:
         self.message.configure(text=text, text_color=theme.BAD if error else theme.TEXT)
 
-
 class PlaceholderPage(ctk.CTkFrame):
     def __init__(self, master, title: str, note: str):
         super().__init__(master, fg_color="transparent")
@@ -163,8 +178,11 @@ class LogPage(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master, fg_color="transparent")
         top = ctk.CTkFrame(self, fg_color="transparent")
-        top.pack(fill="x", pady=(0, 8))
-        ctk.CTkLabel(top, text="Günlük", font=ctk.CTkFont(size=22, weight="bold")).pack(side="left")
+        top.pack(fill="x", pady=(0, 12))
+        titles = ctk.CTkFrame(top, fg_color="transparent")
+        titles.pack(side="left")
+        ctk.CTkLabel(titles, text="Günlük", font=ctk.CTkFont(size=26, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(titles, text="Uygulamanın son kayıtları. Bir sorun olursa buraya bak.", text_color=theme.MUTED).pack(anchor="w")
         ctk.CTkButton(top, text="Yenile", width=80, command=self.reload).pack(side="right")
         self.box = ctk.CTkTextbox(self, wrap="none")
         self.box.pack(fill="both", expand=True)
@@ -380,6 +398,17 @@ class App(ctk.CTk, _DnD):
         else:
             self.dashboard.show_message(res.message, error=True)
         self.refresh()  # gercek durumu geri oku (anahtarlari da dogrular)
+
+    def quick_scan(self) -> None:
+        """Pano'dan tek tikla hizli tarama: tarama sayfasina gecer ve baslatir."""
+        from auxy.core import scan
+
+        self.show("scan")
+        self.pages["scan"].start(scan.QUICK)
+
+    def update_signatures(self) -> None:
+        self.show("scan")
+        self.pages["scan"].update_sigs()
 
     def restart_as_admin(self) -> None:
         if system.relaunch_as_admin(["gui"], windowless=True):
