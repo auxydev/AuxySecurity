@@ -1,5 +1,18 @@
 # Sürüm notları
 
+## 1.1.0 — 2026-10-05
+
+### Yeni
+- **Ağ güvenliği sayfası**: güvenlik duvarı (profiller, gelen bağlantı, kurallar, program engelleme) **Güvenlik sayfasından buraya taşındı**.
+- **GoodbyeDPI** kartı: durum (çalışıyor / durduruldu / kurulu değil), Başlat / Kapat, Windows ile otomatik başlatma anahtarı.
+- **Cloudflare WARP** kartı: durum, Bağlan / Bağlantıyı kes, bağlantı protokolü (**MASQUE** / **WireGuard**), çalışma kipi (WARP, WARP+DoH/DoT, yalnızca DoH/DoT, proxy, yalnızca tünel).
+- **Kurulumda otomatik kurulum**: GoodbyeDPI uygulamayla gelir ve hizmet olarak kaydedilir (mevcut hizmetin argümanları, başlangıç türü ve çalışma durumu korunur); WARP yoksa `winget` ile arka planda kurulur. `/NOGDPI` `/NOWARP` ile kapatılır.
+- **Yeni logo ve tray rozeti**: mavi kalkan + A (exe/pencere/görev çubuğu); tray'de kalkan üzerinde sorun sayısı (kritik: kırmızı, kritik olmayan: turuncu).
+- `auxy netsvc` komutu; `doctor` GoodbyeDPI denetimi.
+
+### Güvenlik
+- GoodbyeDPI hizmeti SİSTEM olarak çalışır: exe'si kullanıcının yazabildiği klasördeyse (ör. Masaüstü) yetki yükseltme riski vardır. Hizmet yalnızca yönetici-yazılabilir konumdaki exe'ye kaydedilir; mevcut riskli hizmet için `doctor` uyarır ve kurulum/sayfa onu `Program Files`'a taşır.
+
 ## 1.0.0 — 2026-10-05
 
 İlk kararlı sürüm: paketlenmiş, kurulabilir uygulama.

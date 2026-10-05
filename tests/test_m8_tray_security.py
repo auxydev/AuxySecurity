@@ -217,7 +217,27 @@ def sp(app, monkeypatch):
     return page
 
 
-def test_toggle_off_needs_confirm_and_reverts_switch_on_no(app, sp):
+@pytest.fixture
+def netp(app, monkeypatch):
+    """Ag guvenligi sayfasi (guvenlik duvari anahtarlari artik burada)."""
+    from auxy.gui import network_page
+
+    page = app.pages["network"]
+    applied = []
+    monkeypatch.setattr(actions, "apply_winsec", lambda k, v: applied.append((k, v)) or ActionResult(True, f"{k} → {v}", True))
+    page.applied, page.confirm_calls, page.answer = applied, [], True
+
+    def ask(title, msg, **k):
+        page.confirm_calls.append((title, msg))
+        return page.answer
+
+    monkeypatch.setattr(network_page.messagebox, "askyesno", ask)
+    monkeypatch.setattr(page, "refresh", lambda: None)
+    return page
+
+
+def test_toggle_off_needs_confirm_and_reverts_switch_on_no(app, netp):
+    sp = netp
     sp.sw["fw_public"].deselect()
     sp.answer = False
     sp._toggle("fw_public")
@@ -229,10 +249,18 @@ def test_toggle_off_needs_confirm_and_reverts_switch_on_no(app, sp):
     assert pump(app, lambda: sp.applied == [("fw_public", "off")])
 
 
-def test_toggle_on_needs_no_confirmation(app, sp):
+def test_toggle_on_needs_no_confirmation(app, netp):
+    sp = netp
     sp.sw["fw_private"].select()
     sp._toggle("fw_private")
     assert pump(app, lambda: sp.applied == [("fw_private", "on")]) and sp.confirm_calls == []
+
+
+def test_firewall_values_render_on_network_page(app, netp):
+    netp._show_firewall({"fw_domain": "on", "fw_private": "off", "fw_public": "on", "fw_in_domain": "default",
+                         "fw_in_private": "block", "fw_in_public": "allow"}, None)
+    assert netp.sw["fw_private"].get() == 0 and netp.sw["fw_public"].get() == 1
+    assert netp.inbound_menus["fw_in_public"].get() == "İzin ver" and netp.inbound_menus["fw_in_private"].get() == "Engelle"
 
 
 def test_hvci_toggle_warns_about_reboot_and_no_restores_switch(app, sp):
@@ -332,7 +360,7 @@ def test_main_view_renders_values_devices_and_hvci_pending_note(app, sp):
     values.update(smartscreen_apps="block", fw_in_public="allow", fw_in_domain="default", hvci="on")
     sp._show_main((values, products, device), None)
     assert "KAPALI" in sp.products_lbl.cget("text") and "güncel DEĞİL" in sp.products_lbl.cget("text")
-    assert sp.ss_menu.get() == "Engelle" and sp.inbound_menus["fw_in_public"].get() == "İzin ver"
+    assert sp.ss_menu.get() == "Engelle"
     assert "Secure Boot: Açık" in sp.device_lbl.cget("text") and "Çalışmıyor" in sp.device_lbl.cget("text")
     assert "yeniden başlat" in sp.hvci_note.cget("text")  # yapilandirildi ama calismiyor -> yeniden baslatma notu
     sp._show_main(None, RuntimeError("wmi"))

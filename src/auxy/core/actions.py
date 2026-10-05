@@ -202,6 +202,54 @@ def exclusion_op(op: str, kind: str, value: str = "") -> ActionResult:
     return run_elevated(["exclusion", op, kind, value])
 
 
+NET_ADMIN_OPS = ("gdpi-start", "gdpi-stop", "gdpi-auto", "gdpi-manual", "gdpi-install", "gdpi-remove")
+NET_WARP_OPS = ("warp-connect", "warp-disconnect", "warp-protocol", "warp-mode")
+
+
+def run_net_op(op: str, value: str = "") -> ActionResult:
+    """Ag araci islemini bu surecte yapar (GoodbyeDPI islemleri yonetici ister)."""
+    from auxy.core import netservices as ns
+
+    try:
+        if op == "gdpi-start":
+            res = ns.service_control("start")
+        elif op == "gdpi-stop":
+            res = ns.service_control("stop")
+        elif op == "gdpi-auto":
+            res = ns.set_start_type("auto")
+        elif op == "gdpi-manual":
+            res = ns.set_start_type("manual")
+        elif op == "gdpi-install":
+            tools = ns.bundled_tools_dir()
+            if tools is None:
+                return ActionResult(False, "Paketlenmiş GoodbyeDPI bulunamadı (yalnızca kurulu sürümde var).")
+            res = ns.install_service(tools)
+        elif op == "gdpi-remove":
+            res = ns.remove_service()
+        elif op == "warp-connect":
+            res = ns.warp_op("connect")
+        elif op == "warp-disconnect":
+            res = ns.warp_op("disconnect")
+        elif op == "warp-protocol":
+            res = ns.warp_op("protocol", value)
+        elif op == "warp-mode":
+            res = ns.warp_op("mode", value)
+        else:
+            return ActionResult(False, f"Geçersiz işlem: {op!r}")
+    except AuxyError as exc:
+        return ActionResult(False, str(exc))
+    return ActionResult(res.ok, res.message, res.changed)
+
+
+def net_op(op: str, value: str = "") -> ActionResult:
+    """Ag araclari (GoodbyeDPI / WARP). WARP islemleri yonetici GEREKTIRMEZ; GoodbyeDPI hizmeti islemleri gerektirir (UAC)."""
+    if op not in NET_ADMIN_OPS + NET_WARP_OPS:
+        return ActionResult(False, f"Geçersiz işlem: {op!r}")
+    if op in NET_WARP_OPS or system.is_admin():
+        return run_net_op(op, value)
+    return run_elevated(["netsvc", op, value] if value else ["netsvc", op])
+
+
 def read_tpm() -> ActionResult:
     from auxy.core import winsec
 

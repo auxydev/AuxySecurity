@@ -1,7 +1,7 @@
 """AuxySecurity kurulum programi (AuxySecurity-Setup.exe).
 
 Pencereli kurulum:  AuxySecurity-Setup.exe
-Sessiz kurulum   :  AuxySecurity-Setup.exe /S [/DIR=C:\\Program Files\\AuxySecurity] [/AUTOSTART] [/CONTEXTMENU] [/DESKTOP] [/NOSTARTMENU]
+Sessiz kurulum   :  AuxySecurity-Setup.exe /S [/DIR=C:\\Program Files\\AuxySecurity] [/AUTOSTART] [/CONTEXTMENU] [/DESKTOP] [/NOSTARTMENU] [/NOGDPI] [/NOWARP]
 Gelistirme       :  python packaging/setup_entry.py --payload <payload.zip> [--dir <hedef>] [/S ...]
 
 Yonetici yetkisi gerekir (Program Files). Uygulama dosyalari kurulum programina gomulu payload.zip'ten cikarilir.
@@ -25,7 +25,7 @@ from auxy.core import install, system  # noqa: E402
 
 def parse(argv: list[str]) -> dict:
     opts = {"silent": False, "dir": None, "autostart": False, "context": False, "desktop": False,
-            "start_menu": True, "payload": None}
+            "start_menu": True, "payload": None, "gdpi": True, "warp": True}
     it = iter(argv)
     for a in it:
         low = a.lower()
@@ -43,6 +43,10 @@ def parse(argv: list[str]) -> dict:
             opts["desktop"] = True
         elif low in ("/nostartmenu", "--no-start-menu"):
             opts["start_menu"] = False
+        elif low in ("/nogdpi", "--no-gdpi"):
+            opts["gdpi"] = False
+        elif low in ("/nowarp", "--no-warp"):
+            opts["warp"] = False
         elif low == "--payload":
             opts["payload"] = next(it, None)
     return opts
@@ -57,7 +61,7 @@ def payload_path(explicit: str | None) -> Path:
 
 def build_options(o: dict) -> install.InstallOptions:
     io = install.InstallOptions(start_menu=o["start_menu"], desktop=o["desktop"], autostart=o["autostart"],
-                                context_menu=o["context"])
+                                context_menu=o["context"], gdpi=o["gdpi"], warp=o["warp"])
     if o["dir"]:
         io.dest = Path(o["dir"])
     return io
@@ -91,7 +95,7 @@ def run_gui(o: dict) -> int:
     opts = build_options(o)
     root = tk.Tk()
     root.title(f"AuxySecurity {__version__} Kurulumu")
-    root.geometry("560x470")
+    root.geometry("560x540")
     root.resizable(False, False)
     pad = {"padx": 18}
 
@@ -108,10 +112,13 @@ def run_gui(o: dict) -> int:
         filedialog.askdirectory(initialdir=path_var.get()) or path_var.get())).pack(side="left", padx=(6, 0))
 
     vars_ = {k: tk.BooleanVar(value=v) for k, v in (("start_menu", opts.start_menu), ("desktop", opts.desktop),
-                                                    ("autostart", opts.autostart), ("context", opts.context_menu))}
+                                                    ("autostart", opts.autostart), ("context", opts.context_menu),
+                                                    ("gdpi", opts.gdpi), ("warp", opts.warp))}
     for key, label in (("start_menu", "Başlat menüsü kısayolları"), ("desktop", "Masaüstü kısayolu"),
                        ("autostart", "Windows açılışında tray ajanını başlat (yüksek yetkili görev)"),
-                       ("context", "Sağ tık menüsüne 'Auxy ile tara' ekle")):
+                       ("context", "Sağ tık menüsüne 'Auxy ile tara' ekle"),
+                       ("gdpi", "GoodbyeDPI hizmetini kaydet (uygulamayla birlikte gelir; mevcut hizmetin ayarları korunur)"),
+                       ("warp", "Cloudflare WARP kurulu değilse arka planda kur (internet gerekir)")):
         ttk.Checkbutton(root, text=label, variable=vars_[key]).pack(anchor="w", pady=2, **pad)
 
     log = tk.Text(root, height=7, state="disabled", font=("Consolas", 9), background="#f6f6f6")
@@ -132,7 +139,8 @@ def run_gui(o: dict) -> int:
     def work() -> None:
         try:
             o2 = dict(o, dir=path_var.get(), start_menu=vars_["start_menu"].get(), desktop=vars_["desktop"].get(),
-                      autostart=vars_["autostart"].get(), context=vars_["context"].get())
+                      autostart=vars_["autostart"].get(), context=vars_["context"].get(),
+                      gdpi=vars_["gdpi"].get(), warp=vars_["warp"].get())
             io = build_options(o2)
             state["dest"] = io.dest
             steps = install.install(payload_path(o["payload"]), io, log=lambda m: q.put(("log", m)))

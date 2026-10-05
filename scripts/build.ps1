@@ -21,6 +21,28 @@ $app = Join-Path $dist "AuxySecurity"
 foreach ($exe in "AuxySecurity.exe", "auxy.exe") {
     if (-not (Test-Path (Join-Path $app $exe))) { throw "$exe uretilemedi" }
 }
+# GoodbyeDPI'i uygulamayla paketle (Apache-2.0; WinDivert LGPL: lisanslar birlikte kopyalanir). Kaynak sirasi:
+# AUXY_GOODBYEDPI_DIR  ->  makinedeki GoodbyeDPI hizmetinin klasoru. Bulunamazsa paketlenmez (kurucu 'atlandi' der).
+# Ikili dosyalar depoya EKLENMEZ (.gitignore: derleme cikti klasoru depo disindadir).
+$gsrc = $env:AUXY_GOODBYEDPI_DIR
+if (-not $gsrc) {
+    $svc = Get-CimInstance Win32_Service -Filter "Name='GoodbyeDPI'" -ErrorAction SilentlyContinue
+    if ($svc -and $svc.PathName -match '^"?([^"]+?\\goodbyedpi\.exe)') {
+        $cand = Split-Path (Split-Path $Matches[1])   # ...\x86_64\goodbyedpi.exe -> ...\<paket>
+        if (Test-Path (Join-Path $cand "x86_64\goodbyedpi.exe")) { $gsrc = $cand }
+    }
+}
+if ($gsrc -and (Test-Path (Join-Path $gsrc "x86_64\goodbyedpi.exe"))) {
+    $gdst = Join-Path $app "tools\goodbyedpi"
+    New-Item -ItemType Directory -Force $gdst | Out-Null
+    foreach ($sub in "x86_64", "x86", "licenses") {
+        if (Test-Path (Join-Path $gsrc $sub)) { Copy-Item (Join-Path $gsrc $sub) $gdst -Recurse -Force }
+    }
+    "GoodbyeDPI paketlendi: $gsrc"
+} else {
+    Write-Warning "GoodbyeDPI bulunamadi (AUXY_GOODBYEDPI_DIR ayarla); kurulumda hizmet kaydedilmeyecek."
+}
+
 $zip = Join-Path $out "payload.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path (Join-Path $app "*") -DestinationPath $zip -CompressionLevel Optimal

@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # 🛡️ AuxySecurity
 
@@ -7,8 +7,8 @@ Hafif bir tray ajanı · şifreli karantina kasası · tarama yöneticisi · gü
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Platform](https://img.shields.io/badge/Windows-11-0078D4?logo=windows11&logoColor=white)
-![Tests](https://img.shields.io/badge/testler-414%20geçiyor-2e9e5b)
-![Kapsam](https://img.shields.io/badge/kapsam-%25_89-2e9e5b)
+![Tests](https://img.shields.io/badge/testler-444%20geçiyor-2e9e5b)
+![Kapsam](https://img.shields.io/badge/kapsam-%25_87-2e9e5b)
 ![Durum](https://img.shields.io/badge/durum-geliştirme%20(v0.x)-d9932b)
 
 <img src="docs/screenshots/pano.png" alt="AuxySecurity panosu" width="720">
@@ -52,7 +52,8 @@ odaklı bir **kontrol paneli** sunar:
 | **Tarama** | Hızlı / tam / klasör / dosya taraması, iptal, imza güncelleme, tehdit listesi, tarama geçmişi, **sürükle-bırak** ve **Explorer sağ tık** ("Auxy ile tara") |
 | **Karantina kasası** | AES-256-GCM ile şifreli, çalıştırılamaz; kasaya alırken doğrulama, geri yükleme, kalıcı silme, çoklu dosya, **parola korumalı anahtar yedeği** |
 | **Defender karantinası** | Defender'ın kendi karantinasını listele ve geri yükle, etkin tehditleri temizle, (onaylı) çevrimdışı tarama |
-| **Güvenlik** | Güvenlik duvarı profilleri ve gelen bağlantı eylemi, kural listesi (pasifleştir / geri aç), program engelleme, SmartScreen, çekirdek yalıtımı (bellek bütünlüğü), Secure Boot / TPM / exploit protection durumu, Defender dışlamaları |
+| **Güvenlik** | SmartScreen, çekirdek yalıtımı (bellek bütünlüğü), Secure Boot / TPM / exploit protection durumu, Defender dışlamaları |
+| **Ağ güvenliği** | Güvenlik duvarı profilleri ve gelen bağlantı eylemi, kural listesi (pasifleştir / geri aç), program engelleme; **GoodbyeDPI** hizmeti (durum, başlat/kapat, otomatik başlatma, güvenli konuma taşıma); **Cloudflare WARP** (bağlan/kes, protokol MASQUE ↔ WireGuard, çalışma kipi). Kurulum programı ikisini de arka planda kurar |
 | **Otomasyon** | İndirilenler klasörünü izleme, Defender tehdit bildirimleri (olay günlüğü aboneliği), USB tarama, haftalık zamanlanmış tarama (boştayken), Windows açılışında başlatma |
 | **Tanı ve bakım** | `auxy doctor` (ortam/kurulum tanısı, hiçbir şeyi değiştirmez), `auxy cleanup` (kaldırma temizliği), `auxy revert-all` |
 | **CLI** | Her şeyin komut satırı karşılığı (`auxy status`, `auxy scan quick`, `auxy vault add …`) |
@@ -64,7 +65,10 @@ Hepsi **geri alınabilir** olacak şekilde tasarlandı: bir ayarı ilk değişti
 
 <table>
 <tr>
-<td><img src="docs/screenshots/guvenlik.png" alt="Güvenlik"><br><sub><b>Güvenlik</b>: güvenlik duvarı, SmartScreen, cihaz güvenliği</sub></td>
+<td><img src="docs/screenshots/guvenlik.png" alt="Güvenlik"><br><sub><b>Güvenlik</b>: SmartScreen, cihaz güvenliği, dışlamalar</sub></td>
+<td><img src="docs/screenshots/ag-guvenligi.png" alt="Ağ güvenliği"><br><sub><b>Ağ güvenliği</b>: GoodbyeDPI, WARP, güvenlik duvarı</sub></td>
+</tr>
+<tr>
 <td><img src="docs/screenshots/tarama.png" alt="Tarama"><br><sub><b>Tarama</b>: tehditler ve geçmiş</sub></td>
 </tr>
 <tr>
@@ -86,8 +90,10 @@ Hepsi **geri alınabilir** olacak şekilde tasarlandı: bir ayarı ilk değişti
 `AuxySecurity-Setup.exe` dosyasını çalıştır (UAC sorar) ya da sessiz kur:
 
 ```powershell
-AuxySecurity-Setup.exe /S /AUTOSTART /CONTEXTMENU   # ayrıca /DIR=... /DESKTOP /NOSTARTMENU
+AuxySecurity-Setup.exe /S /AUTOSTART /CONTEXTMENU   # ayrıca /DIR=... /DESKTOP /NOSTARTMENU /NOGDPI /NOWARP
 ```
+
+Kurulum, uygulamayla gelen **GoodbyeDPI**'ı hizmet olarak kaydeder (zaten kuruluysa ayarları korunur, exe güvenli konuma taşınır) ve **WARP** yoksa resmi paketi winget ile arka planda kurar; istemezsen /NOGDPI /NOWARP.
 
 Kaldırma: *Ayarlar → Uygulamalar* ya da `AuxySecurity.exe uninstall` (ayarların ve karantina kasan korunur). Kurulum programını kendin üretmek için: `scripts\build.ps1` ardından `scripts\build_installer.ps1` ([M9](docs/milestones/M09-packaging.md)). Sürüm notları: [CHANGELOG](CHANGELOG.md).
 
@@ -122,7 +128,7 @@ yüksek yetkiyle (her açılışta UAC sorulmadan) başlar.
 ## Kullanım
 
 ### Pencere ve tray
-`python -m auxy gui` ile açılan pencerede **Pano · Güvenlik · Tarama · Karantina · Ayarlar · Günlük** sayfaları var.
+`python -m auxy gui` ile açılan pencerede **Pano · Güvenlik · Ağ güvenliği · Tarama · Karantina · Ayarlar · Günlük** sayfaları var.
 Bir ayarı değiştirmek yönetici izni gerektiriyorsa standart Windows UAC penceresi açılır; reddedersen hiçbir şey
 değişmez ve anahtar gerçek duruma döner.
 
@@ -139,6 +145,7 @@ değişmez ve anahtar gerçek duruma döner.
 | `auxy defender-quarantine list` · `restore <yol>` · `clean` | Defender'ın kendi karantinası (UAC) |
 | `auxy winsec-get` · `winsec-set fw_private off` · `winsec-revert` | Güvenlik duvarı, SmartScreen, çekirdek yalıtımı |
 | `auxy firewall-rule list` · `disable <ad>` · `block <program>` | Güvenlik duvarı kuralları |
+| `auxy netsvc status` · `gdpi-start/-stop` · `warp-connect` · `warp-protocol MASQUE` | GoodbyeDPI ve WARP |
 | `auxy exclusion list path` · `add path C:\proje` | Defender dışlamaları |
 | `auxy autostart install` · `context-menu install` | Başlangıç görevi, sağ tık menüsü |
 | `auxy doctor` · `cleanup` · `revert-all` | Tanı, kaldırma temizliği, tüm ayarları geri alma |
@@ -209,7 +216,7 @@ Gerçek makinede ölçüldü (Windows 11):
 ## Geliştirme
 
 ```powershell
-pytest -q                           # 414 test, ~40 sn (GUI testleri dahil), kapsam %89
+pytest -q                           # 444 test, ~40 sn (GUI testleri dahil), kapsam %87
 python -m auxy doctor               # ortam tanısı
 python scripts\unused_imports.py src
 ```
@@ -226,9 +233,9 @@ AuxySecurity/
 ├─ src/auxy/
 │  ├─ core/      Defender, tarama, kasa, güvenlik duvarı, SmartScreen, dışlamalar, UAC akışı …
 │  ├─ agent/     tray ajanı, klasör izleme, olay aboneliği, USB, zamanlayıcı
-│  ├─ gui/       pencere, sayfalar (pano, güvenlik, tarama, karantina, ayarlar)
+│  ├─ gui/       pencere, sayfalar (pano, güvenlik, ağ güvenliği, tarama, karantina, ayarlar)
 │  └─ __main__.py   CLI
-├─ tests/        pytest (414 test)
+├─ tests/        pytest (444 test)
 ├─ scripts/      gerçek makine testleri, ölçümler, ekran görüntüsü üretimi
 ├─ docs/         milestone dokümanları, mimari kararlar, ekran görüntüleri
 ├─ PLAN.md       kapsamlı proje planı

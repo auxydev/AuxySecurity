@@ -388,6 +388,30 @@ def cmd_firewall_rule(args) -> int:
     return 0
 
 
+def cmd_netsvc(args) -> int:
+    from auxy.core import netservices as ns
+
+    if args.op == "status":
+        g, w = ns.read_service(), ns.read_warp()
+        if g.installed:
+            safe = "" if ns.trusted_location(g.binary) else "  [UYARI: exe kullanıcının yazabildiği bir konumda]"
+            print(f"GoodbyeDPI: {g.state} (başlangıç: {g.start_type}) {g.binary}{safe}")
+        else:
+            print("GoodbyeDPI: kurulu değil")
+        if w.installed:
+            print(f"WARP      : {w.status} ({w.reason}) kip={w.mode} protokol={w.protocol}")
+        else:
+            print("WARP      : kurulu değil")
+        return 0
+    admin_op = args.op in actions.NET_ADMIN_OPS
+    if not _helper_guard(args, needs_admin=admin_op):
+        return 3
+    res = actions.net_op(args.op, args.value or "")
+    _report(args, res.ok, res.message, res.changed)
+    print(("" if res.ok else "HATA: ") + res.message, file=None if res.ok else sys.stderr)
+    return 0 if res.ok else 1
+
+
 def cmd_revert_all(args) -> int:
     if not _helper_guard(args):
         return 3
@@ -565,7 +589,7 @@ def cmd_revert(args) -> int:
 # her islem buradan gecer; digerleri (gui, agent, scan, vault ...) yukseltilmis surecte calismayi REDDEDER.
 ELEVATED_ALLOWED = frozenset({
     "set", "scan-cancel", "winsec-set", "exclusion", "tpm-info", "autostart", "defender-quarantine",
-    "firewall-rule", "revert-all",
+    "firewall-rule", "revert-all", "netsvc",
 })
 
 
@@ -659,6 +683,12 @@ def main(argv: list[str] | None = None) -> int:
     p_dq.add_argument("--yes", action="store_true", help="offline-scan: yeniden başlatmayı onayla")
     p_dq.add_argument("--result", help=argparse.SUPPRESS)
     p_dq.set_defaults(func=cmd_defender_quarantine)
+
+    p_ns = sub.add_parser("netsvc", help="Ağ araçları: GoodbyeDPI hizmeti ve Cloudflare WARP (durum yönetici istemez)")
+    p_ns.add_argument("op", choices=["status", *actions.NET_ADMIN_OPS, *actions.NET_WARP_OPS])
+    p_ns.add_argument("value", nargs="?", help="warp-protocol: MASQUE|WireGuard; warp-mode: warp|warp+doh|doh|...")
+    p_ns.add_argument("--result", help=argparse.SUPPRESS)
+    p_ns.set_defaults(func=cmd_netsvc)
 
     p_fr = sub.add_parser("firewall-rule", help="Güvenlik duvarı kuralları (listeleme yönetici istemez)")
     p_fr.add_argument("op", choices=["list", "list-blocks", "disable", "enable", "block", "unblock"])

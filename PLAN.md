@@ -1,4 +1,4 @@
-﻿# AuxySecurity – Kapsamlı Proje Planı
+# AuxySecurity – Kapsamlı Proje Planı
 
 > Kişisel Windows Security (Defender) kontrol paneli + hafif tarayıcı + karantina aracı.
 > Dil: Python 3.12+ · Hedef: Windows 11 · Metodoloji: Sürekli Prototipleme + Milestone dokümantasyonu
@@ -13,6 +13,7 @@ Bu belge **başlangıç planıdır**; gerçekleşen durum için [docs/README.md]
 | B01 | ✔ eksik tamamlama | M0–M7'de ertelenenler: süreçler arası kilit, sürükle-bırak, Defender karantinası, güvenlik duvarı kuralları, kasa anahtarı yedeği … |
 | M8 | ✔ sağlamlaştırma ([doküman](docs/milestones/M08-hardening.md)) | VM testi yapılamadı: yerine temiz sanal ortamda tekerlek kurulumu |
 | M9 | ✔ paketleme, v1.0.0 ([doküman](docs/milestones/M09-packaging.md)) | İmzalama sertifikasız denenmedi; Windows 10 / VM denenmedi |
+| M10 | ✔ ağ güvenliği (GoodbyeDPI + WARP), v1.1.0 ([doküman](docs/milestones/M10-network.md)) | Başlat/Kapat/Bağlan/protokol değişikliği gerçek makinede denenmedi (canlı ağı etkiler) |
 
 ---
 

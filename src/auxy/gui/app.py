@@ -11,6 +11,7 @@ from auxy.core.settings import SETTINGS
 from auxy.core.settings import TOGGLE_KEYS as TOGGLES
 from auxy.gui import viewmodel as vm
 from auxy.gui.scan_page import ScanPage
+from auxy.gui.network_page import NetworkPage
 from auxy.gui.security_page import SecurityPage
 from auxy.gui.settings_page import SettingsPage
 from auxy.gui.vault_page import VaultPage
@@ -27,6 +28,7 @@ MAPS_TR = {"Kapalı": "off", "Temel": "basic", "Gelişmiş": "advanced"}
 NAV = (
     ("dashboard", "Pano"),
     ("security", "Güvenlik"),
+    ("network", "Ağ güvenliği"),
     ("scan", "Tarama"),
     ("quarantine", "Karantina"),
     ("settings", "Ayarlar"),
@@ -219,6 +221,7 @@ class App(ctk.CTk, _DnD):
         self.pages: dict[str, ctk.CTkFrame] = {
             "dashboard": self.dashboard,
             "security": SecurityPage(content, self),
+            "network": NetworkPage(content, self),
             "scan": ScanPage(content, self),
             "quarantine": VaultPage(content, self),
             "settings": SettingsPage(content, self),
@@ -301,6 +304,8 @@ class App(ctk.CTk, _DnD):
             self.pages["settings"].load_into_widgets()
         elif key == "security":
             self.pages["security"].refresh()
+        elif key == "network":
+            self.pages["network"].refresh()
         elif key == "quarantine":
             self.pages["quarantine"].refresh()
 

@@ -1,4 +1,4 @@
-﻿# Backlog
+# Backlog
 
 Kapsam dışı fikirler buraya girer; mevcut milestone genişlemez. (Güncel: 2026-10-05)
 
@@ -7,6 +7,10 @@ Kapsam dışı fikirler buraya girer; mevcut milestone genişlemez. (Güncel: 20
 - Windows 10 / temiz VM'de kurulum-kaldırma denemesi
 - Uygulama içi güncelleme (şu an: yeni Setup'ı üstüne kur)
 - Kurulum klasörüne açık ACL denetimi (şu an `Program Files` varsayılanına güvenilir)
+
+## Fiziksel olarak doğrulanması gerekenler (M10)
+- GoodbyeDPI Başlat/Kapat/otomatik başlatma, WARP Bağlan/Kes, protokol (MASQUE↔WireGuard) ve kip değiştirme: gerçek ağda dene
+- Sıfırdan makinede kurucunun `winget` ile WARP kurması
 
 ## Fikirler
 - YARA kural taraması
@@ -17,6 +21,8 @@ Kapsam dışı fikirler buraya girer; mevcut milestone genişlemez. (Güncel: 20
 - Güvenlik duvarı: kural **ekleme** (şu an: listele, pasifleştir, program engelle)
 - Bildirimde eylem düğmeleri (şu an: tray menüsünde "Tehdidi kasaya al")
 - Kasa: arama, etiket, sayfalama
+- GoodbyeDPI ön ayar seçici (Türkiye alternatifleri), WARP split-tunnel listesi
+- GoodbyeDPI ön ayar seçici (Türkiye alternatifleri), WARP split-tunnel listesi
 - Çoklu dil (i18n altyapısı; arayüz şu an Türkçe)
 
 ## Bilinçli olarak yapılmayanlar (neden: ilgili milestone dokümanı)

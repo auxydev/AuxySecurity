@@ -53,6 +53,15 @@ class FakeVault:
 
 
 vault_page._vault = FakeVault()
+
+# ag araclari: kisisel yol icermeyen ornek durum (gercek hizmetlere dokunulmaz)
+from auxy.core import netservices  # noqa: E402
+
+netservices.read_service = lambda name=netservices.GDPI_SERVICE: netservices.ServiceInfo(
+    True, "running", "auto", r"C:\Program Files\AuxySecurity\tools\goodbyedpi\x86_64\goodbyedpi.exe", netservices.GDPI_DEFAULT_ARGS)
+netservices.read_warp = lambda: netservices.WarpInfo(True, "Connected", "NetworkHealthy", "warp+doh", "MASQUE", True)
+netservices.bundled_tools_dir = lambda: None
+netservices.trusted_location = lambda *a, **k: True
 DQ = [{"threat": "Virus:DOS/EICAR_Test_File", "path": r"C:\Users\ornek\Downloads\eicar-test.txt",
        "scheme": "file", "quarantined_at": "4.10.2026 19:54:32 (UTC)"}]
 actions.defender_quarantine_op = lambda op, path="", to_dir="": ActionResult(True, "tamam", False, DQ)
@@ -70,7 +79,7 @@ def snap(name):
 
 
 steps = [
-    ("pano", "dashboard", None), ("guvenlik", "security", None), ("tarama", "scan", None),
+    ("pano", "dashboard", None), ("guvenlik", "security", None), ("ag-guvenligi", "network", None), ("tarama", "scan", None),
     ("karantina-kasa", "quarantine", None), ("karantina-defender", "quarantine", "defender"),
     ("ayarlar", "settings", None), ("pano-koyu", "dashboard", "dark"),
 ]

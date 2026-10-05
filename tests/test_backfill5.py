@@ -271,7 +271,7 @@ BLOCKS = [
 
 @pytest.fixture
 def spage(app, monkeypatch):
-    page = app.pages["security"]
+    page = app.pages["network"]
     calls = []
 
     def fake_op(op, value=""):
@@ -307,15 +307,15 @@ def test_rules_list_filter_and_blocks(app, spage):
 
 
 def test_disable_requires_confirmation_then_runs_and_reloads(app, spage, monkeypatch):
-    from auxy.gui import security_page
+    from auxy.gui import network_page
 
     spage.load_rules()
     assert pump(app, lambda: len(spage.rules_cache) == 2)
-    monkeypatch.setattr(security_page.messagebox, "askyesno", lambda *a, **k: False)
+    monkeypatch.setattr(network_page.messagebox, "askyesno", lambda *a, **k: False)
     spage.disable_rule(RULES[0])
     app.update()
     assert not any(c[0] == "disable" for c in spage.calls)
-    monkeypatch.setattr(security_page.messagebox, "askyesno", lambda *a, **k: True)
+    monkeypatch.setattr(network_page.messagebox, "askyesno", lambda *a, **k: True)
     spage.disable_rule(RULES[0])
     assert pump(app, lambda: ("disable", "R-A") in spage.calls)
     assert pump(app, lambda: "disable tamam" in spage.message.cget("text"))
@@ -323,21 +323,21 @@ def test_disable_requires_confirmation_then_runs_and_reloads(app, spage, monkeyp
 
 
 def test_block_program_dialog_and_unblock(app, spage, monkeypatch, tmp_path):
-    from auxy.gui import security_page
+    from auxy.gui import network_page
 
     exe = tmp_path / "x.exe"
     exe.write_bytes(b"MZ")
-    monkeypatch.setattr(security_page.filedialog, "askopenfilename", lambda **k: str(exe))
-    monkeypatch.setattr(security_page.messagebox, "askyesno", lambda *a, **k: False)
+    monkeypatch.setattr(network_page.filedialog, "askopenfilename", lambda **k: str(exe))
+    monkeypatch.setattr(network_page.messagebox, "askyesno", lambda *a, **k: False)
     spage.block_program()
     app.update()
     assert not any(c[0] == "block" for c in spage.calls)  # onay yok: engellenmez
-    monkeypatch.setattr(security_page.messagebox, "askyesno", lambda *a, **k: True)
+    monkeypatch.setattr(network_page.messagebox, "askyesno", lambda *a, **k: True)
     spage.block_program()
     assert pump(app, lambda: ("block", str(exe)) in spage.calls)
     spage.unblock("AuxySecurity-in-0123456789ab")
     assert pump(app, lambda: ("unblock", "AuxySecurity-in-0123456789ab") in spage.calls)
-    monkeypatch.setattr(security_page.filedialog, "askopenfilename", lambda **k: "")
+    monkeypatch.setattr(network_page.filedialog, "askopenfilename", lambda **k: "")
     n = len(spage.calls)
     spage.block_program()  # dosya secilmedi
     app.update()
@@ -345,16 +345,16 @@ def test_block_program_dialog_and_unblock(app, spage, monkeypatch, tmp_path):
 
 
 def test_inbound_allow_needs_confirmation(app, monkeypatch):
-    from auxy.gui import security_page
+    from auxy.gui import network_page
 
-    page = app.pages["security"]
+    page = app.pages["network"]
     applied = []
     monkeypatch.setattr(page, "_apply", lambda k, v: applied.append((k, v)))
     monkeypatch.setattr(page, "refresh", lambda: None)
-    monkeypatch.setattr(security_page.messagebox, "askyesno", lambda *a, **k: False)
+    monkeypatch.setattr(network_page.messagebox, "askyesno", lambda *a, **k: False)
     page._set_inbound("fw_in_public", "İzin ver")
     assert applied == []  # reddedildi
-    monkeypatch.setattr(security_page.messagebox, "askyesno", lambda *a, **k: True)
+    monkeypatch.setattr(network_page.messagebox, "askyesno", lambda *a, **k: True)
     page._set_inbound("fw_in_public", "İzin ver")
     page._set_inbound("fw_in_public", "Engelle")  # guclendirme: onay sormaz
     page._set_inbound("fw_in_private", "Varsayılan")

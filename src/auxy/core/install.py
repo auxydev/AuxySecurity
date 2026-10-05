@@ -46,6 +46,8 @@ class InstallOptions:
     desktop: bool = False
     autostart: bool = False
     context_menu: bool = False
+    gdpi: bool = False  # paketle gelen GoodbyeDPI'i hizmet olarak kaydet (kurucu varsayilani: acik)
+    warp: bool = False  # WARP kurulu degilse winget ile arka planda kur (kurucu varsayilani: acik)
     start_menu_path: Path | None = None
     desktop_path: Path | None = None
     hive: int = winreg.HKEY_LOCAL_MACHINE
@@ -184,6 +186,7 @@ def install(zip_path: Path, opts: InstallOptions, log=print) -> list[str]:
     stopped = stop_running_instances(opts.dest)
     if stopped:
         steps.append("kapatıldı: " + ", ".join(stopped))
+    gdpi_was_running = _stop_our_gdpi(opts.dest)  # calisan goodbyedpi.exe uzerine yazilamaz (guncelleme)
     log(f"Dosyalar kopyalanıyor: {opts.dest}")
     n = extract_payload(zip_path, opts.dest)
     verify_install(opts.dest)
@@ -206,6 +209,55 @@ def install(zip_path: Path, opts: InstallOptions, log=print) -> list[str]:
 
         contextmenu.install(exe=str(opts.dest / system.GUI_EXE))
         steps.append("sağ tık menüsü kuruldu")
+    steps += install_network_tools(opts, log)
+    if gdpi_was_running:
+        steps.append(_restart_gdpi())
+    return steps
+
+
+def _stop_our_gdpi(dest: Path) -> bool:
+    """Hizmet BU kurulumdaki exe'yi calistiriyorsa durdurur; calisiyorduysa True."""
+    try:
+        from auxy.core import netservices as ns
+
+        info = ns.read_service()
+        if info.installed and info.state == "running" and Path(dest).resolve() in Path(info.binary).resolve().parents:
+            return ns.service_control("stop").ok
+    except Exception:  # noqa: BLE001 - guncelleme dosya kopyalamada zaten hata verir
+        pass
+    return False
+
+
+def _restart_gdpi() -> str:
+    from auxy.core import netservices as ns
+
+    try:
+        return "GoodbyeDPI yeniden başlatıldı" if ns.service_control("start").ok else "GoodbyeDPI yeniden başlatılamadı"
+    except Exception as exc:  # noqa: BLE001
+        return f"GoodbyeDPI yeniden başlatılamadı: {exc}"
+
+
+def install_network_tools(opts: InstallOptions, log=print) -> list[str]:
+    """GoodbyeDPI hizmeti + WARP. Hicbir adim kurulumu BASARISIZ yapmaz (ag araclari istege bagli ek)."""
+    from auxy.core import netservices as ns
+
+    steps = []
+    if opts.gdpi:
+        tools = opts.dest / ns.TOOLS_SUBDIR
+        try:
+            if not (tools / "x86_64" / "goodbyedpi.exe").exists() and not (tools / "x86" / "goodbyedpi.exe").exists():
+                steps.append("GoodbyeDPI paketi bu kurulumda yok: atlandı")
+            else:
+                log("GoodbyeDPI hizmeti kaydediliyor…")
+                steps.append("GoodbyeDPI: " + ns.install_service(tools).message)
+        except Exception as exc:  # noqa: BLE001 - istege bagli
+            steps.append(f"GoodbyeDPI kurulamadı: {exc}")
+    if opts.warp:
+        log("Cloudflare WARP denetleniyor / kuruluyor (arka plan)…")
+        try:
+            steps.append("WARP: " + ns.install_warp().message)
+        except Exception as exc:  # noqa: BLE001
+            steps.append(f"WARP kurulamadı: {exc}")
     return steps
 
 
@@ -231,6 +283,12 @@ def uninstall(opts: InstallOptions, remove_data: bool = False, force_vault: bool
             steps.append("sağ tık menüsü kaldırıldı")
         else:
             steps.append("sağ tık menüsü başka bir kurulumu gösteriyor: dokunulmadı")
+    try:  # yalnizca bu kurulumdaki GoodbyeDPI'i kaldir; kullanicinin baska konumdaki hizmetine dokunma. WARP kalir.
+        from auxy.core import netservices as ns
+
+        steps.append("GoodbyeDPI: " + ns.remove_service(only_under=opts.dest).message)
+    except Exception as exc:  # noqa: BLE001
+        steps.append(f"GoodbyeDPI kaldırılamadı: {exc}")
     remove_shortcuts(opts)
     steps.append("kısayollar kaldırıldı")
     unregister_uninstall(opts)

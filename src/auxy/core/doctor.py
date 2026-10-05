@@ -271,11 +271,25 @@ def check_legacy_data() -> Check:
                  "auxy migrate-data --yes (eski veri silinmez, kopyalanır)")
 
 
+def check_network_tools() -> Check:
+    from auxy.core import netservices as ns
+
+    g = ns.read_service()
+    if not g.installed:
+        return Check("GoodbyeDPI", INFO, "hizmet kurulu değil")
+    detail = f"{g.state}, başlangıç: {g.start_type}, {g.binary}"
+    if not ns.trusted_location(g.binary):
+        return Check("GoodbyeDPI", WARN, detail + " — SİSTEM hizmeti, kullanıcının yazabildiği bir klasördeki exe'yi "
+                     "çalıştırıyor (yetki yükseltme riski)",
+                     "Ağ güvenliği sayfası → 'Güvenli konuma taşı' (kurulu sürümde) ya da exe'yi Program Files'a taşı")
+    return Check("GoodbyeDPI", OK, detail)
+
+
 CHECKS: tuple[tuple[str, Callable], ...] = (
     ("python", check_python), ("deps", check_dependencies), ("admin", check_admin), ("defender", check_defender),
     ("mpcmdrun", check_mpcmdrun), ("data", check_data_dir), ("config", check_config), ("backup", check_backup),
     ("vault", check_vault), ("agent", check_agent), ("autostart", check_autostart), ("ctx", check_context_menu),
-    ("location", check_install_location), ("legacy", check_legacy_data), ("log", check_log), ("lock", check_scan_lock),
+    ("location", check_install_location), ("legacy", check_legacy_data), ("nettools", check_network_tools), ("log", check_log), ("lock", check_scan_lock),
 )
 
 

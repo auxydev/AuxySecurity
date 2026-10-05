@@ -48,6 +48,7 @@
 | T15 | **Bağımlılık açıkları** | Orta | ✔ Temiz | `pip-audit` (temiz kurulum): 7 bağımlılıkta bilinen açık **yok**; 12 bulgunun tamamı yalnızca `pip` aracında (uygulamayla dağıtılmaz) |
 | T16 | **Kaynak sızıntısı / uzun süre çalışma** | Düşük | ✔ Temiz | 300 yenileme turu: iş parçacığı sabit, bellek ±0.3 MB, handle +11 (önbellek); ajan 30 sn'de CPU %0.000 |
 | T17 | **Sessiz hata** (konsolsuz süreçte yakalanmamış istisna) | Orta | ✔ Kapalı | `threading.excepthook`, `sys.excepthook`, `unraisablehook`, Tk geri çağırma kancası → günlük; ajan çökerse nedeni günlüğe yazılır; **Python istisnasında ajan içi denetçi yeniden başlatır, süreç ölümünde görevdeki tekrarlanan tetikleyici (10 dk, `IgnoreNew`) yeniden başlatır** (her ikisi gerçek makinede doğrulandı; ilk sürümdeki "hata durumunda yeniden başlat" ayarı Zamanlayıcı'da hata koduyla tetiklenmediği için bırakıldı) |
+| T18 | **GoodbyeDPI hizmeti kullanıcı klasöründen SİSTEM olarak çalışıyor** (Masaüstü/OneDrive altındaki exe + WinDivert sürücüsü) | Yüksek | ✔ Kapalı (bu makinede düzeltildi) | Hizmet yalnızca yönetici-yazılabilir konumdaki exe'ye kaydedilir; riskli mevcut hizmeti `doctor` ve Ağ güvenliği sayfası uyarır; kurucu hizmeti `Program Files\AuxySecurity\tools\goodbyedpi`'ye taşır (argümanlar korunur). Kaldırıcı yalnızca bu kurulumdaki hizmeti siler |
 
 ## 3. Bu inceleme sırasında yapılan sertleştirmeler
 1. Sonuç dosyası güvenli açış (bağlantı/hardlink/TOCTOU) + iki katmanlı savunma testleri

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from auxy import __main__ as cli
+from auxy import __version__
 from auxy.agent import supervisor
 from auxy.core import autostart, contextmenu, hardening, system
 
@@ -127,7 +128,7 @@ def test_frozen_gui_exe_defaults_to_gui_when_no_args(frozen, monkeypatch):
 def test_version_is_1_0_0(capsys):
     with pytest.raises(SystemExit):
         cli.main(["--version"])
-    assert capsys.readouterr().out.strip() == "1.0.0"
+    assert capsys.readouterr().out.strip() == __version__
 
 
 # ---------------- yukseltilmis yardimci: izinli alt komutlar ----------------

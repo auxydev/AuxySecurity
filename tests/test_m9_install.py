@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from auxy import __main__ as cli
+from auxy import __version__
 from auxy.core import autostart, cleanup, contextmenu, install, system
 
 TEST_KEY = r"Software\AuxyTestM9\Uninstall"
@@ -62,6 +63,10 @@ def no_side_effects(monkeypatch):
     monkeypatch.setattr(contextmenu, "install", lambda **k: calls["ctx"].append(("install", k)))
     monkeypatch.setattr(contextmenu, "remove", lambda: calls["ctx"].append("remove"))
     monkeypatch.setattr(contextmenu, "is_installed", lambda: bool(calls["ctx"]) and calls["ctx"][-1] != "remove")
+    from auxy.core import netservices
+
+    monkeypatch.setattr(netservices, "read_service", lambda name=netservices.GDPI_SERVICE: netservices.ServiceInfo(False))
+    monkeypatch.setattr(netservices, "remove_service", lambda *a, **k: netservices.NetResult(True, "Hizmet zaten yok."))
     # kayitli komut: son kurulumun exe'si (testte kurulum klasorunun icinde)
     monkeypatch.setattr(autostart, "registered_command", lambda: str(calls["task"][0][1].get("exe", "")) if calls["task"] else "")
     monkeypatch.setattr(contextmenu, "registered_command", lambda: str(calls["ctx"][0][1].get("exe", "")) if calls["ctx"] else "")
@@ -120,7 +125,7 @@ def test_uninstall_registration_values_and_removal(tmp_path):
     install.register_uninstall(o)
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, TEST_KEY, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as k:
         get = lambda n: winreg.QueryValueEx(k, n)[0]  # noqa: E731
-        assert get("DisplayName") == "AuxySecurity" and get("DisplayVersion") == "1.0.0"
+        assert get("DisplayName") == "AuxySecurity" and get("DisplayVersion") == __version__
         assert get("InstallLocation") == str(o.dest)
         assert get("UninstallString") == f'"{o.dest / "AuxySecurity.exe"}" uninstall'
         assert get("QuietUninstallString").endswith("uninstall --quiet")
