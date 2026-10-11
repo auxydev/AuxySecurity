@@ -16,6 +16,9 @@ Kapsam dışı fikirler buraya girer; mevcut milestone genişlemez. (Güncel: 20
 - DNS'i gerçekten atama + DoH + Sıkı mod, 'Eski haline döndür'; rastgele Wi-Fi MAC
 - Tor'u gerçekten indirme/çalıştırma, köprüler (obfs4/snowflake), Windows vekili
 
+## Fiziksel olarak doğrulanması gerekenler (M12)
+- Bir ön ayarı gerçekten uygulayıp 'Önceki ayarlara dön' ile geri alma (DNS + WARP + MAC + Tor birlikte)
+
 ## Fikirler
 - YARA kural taraması
 - VirusTotal hash sorgusu (yalnızca hash, opt-in)
@@ -28,6 +31,7 @@ Kapsam dışı fikirler buraya girer; mevcut milestone genişlemez. (Güncel: 20
 - GoodbyeDPI ön ayar seçici (Türkiye alternatifleri), WARP split-tunnel listesi
 - GoodbyeDPI ön ayar seçici (Türkiye alternatifleri), WARP split-tunnel listesi
 - Gerçek 'Tor VPN' (TUN sürücüsü + tun2socks), VPN kill-switch, DNS-sızıntı testi, DNS ile reklam/zararlı alan adı engelleme
+- Kullanıcı tanımlı ön ayarlar, ağa göre otomatik ön ayar (SSID/yurt ağı), tray menüsünden ön ayar seçimi
 - Çoklu dil (i18n altyapısı; arayüz şu an Türkçe)
 
 ## Bilinçli olarak yapılmayanlar (neden: ilgili milestone dokümanı)

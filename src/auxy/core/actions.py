@@ -322,6 +322,78 @@ def privacy_op(op: str, value: str = "") -> ActionResult:
     return run_privacy_op(op, value)
 
 
+def _validate_preset_admin(dns_value: str, adapters, macs_on, macs_off, fw_on) -> None:
+    from auxy.core import dns as dnsmod
+    from auxy.core import presets
+
+    if dns_value and dns_value != "__reset__":
+        dnsmod.resolve_servers(dns_value)
+    if dns_value and not adapters:
+        raise AuxyError("En az bir ağ bağdaştırıcısı seç.")
+    for name in [*macs_on, *macs_off]:
+        if not name or any(c in name for c in '"\r\n'):
+            raise AuxyError("Geçersiz arayüz adı.")
+    for k in fw_on:
+        if k not in presets.FW_KEYS:
+            raise AuxyError(f"Geçersiz güvenlik duvarı anahtarı: {k!r}")
+
+
+def run_preset_admin(dns: str = "", adapters=(), doh: bool = False, strict: bool = False, macs_on=(), macs_off=(),
+                     fw_on=()) -> ActionResult:
+    """Ön ayarın yönetici gerektiren adımları TEK süreçte (yönetici gerekir)."""
+    from auxy.core import dns as dnsmod
+    from auxy.core import privacy, winsec
+
+    parts, ok = [], True
+    try:
+        if dns == "__reset__":
+            parts.append(dnsmod.reset(list(adapters)))
+        elif dns:
+            parts.append(dnsmod.apply(dns, list(adapters), doh, strict))
+    except AuxyError as exc:
+        ok = False
+        parts.append(f"DNS: {exc}")
+    for name, on in [*[(n, True) for n in macs_on], *[(n, False) for n in macs_off]]:
+        try:
+            parts.append(privacy.set_mac_randomization(on, name))
+        except AuxyError as exc:
+            ok = False
+            parts.append(f"MAC {name}: {exc}")
+    for key in fw_on:
+        try:
+            winsec.WinSecService().set(key, "on")
+            parts.append(f"güvenlik duvarı {key}: açık")
+        except AuxyError as exc:
+            ok = False
+            parts.append(f"{key}: {exc}")
+    return ActionResult(ok, "; ".join(parts) or "Yönetici adımı yok.", bool(parts))
+
+
+def preset_admin(dns: str = "", adapters=(), doh: bool = False, strict: bool = False, macs_on=(), macs_off=(),
+                 fw_on=()) -> ActionResult:
+    """Ön ayarın yönetici adımlarını TEK UAC isteminde çalıştırır. Girdiler UAC'den ÖNCE doğrulanır."""
+    try:
+        _validate_preset_admin(dns, list(adapters), list(macs_on), list(macs_off), list(fw_on))
+    except AuxyError as exc:
+        return ActionResult(False, str(exc))
+    if system.is_admin():
+        return run_preset_admin(dns, adapters, doh, strict, macs_on, macs_off, fw_on)
+    args = ["presetadmin"]
+    if dns:
+        args += ["--dns", dns, "--adapters", ",".join(str(int(a)) for a in adapters)]
+    if doh:
+        args.append("--doh")
+    if strict:
+        args.append("--strict")
+    for n in macs_on:
+        args += ["--mac-on", n]
+    for n in macs_off:
+        args += ["--mac-off", n]
+    for k in fw_on:
+        args += ["--fw-on", k]
+    return run_elevated(args, timeout_s=180)
+
+
 def read_tpm() -> ActionResult:
     from auxy.core import winsec
 

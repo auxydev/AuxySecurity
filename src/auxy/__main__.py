@@ -461,6 +461,50 @@ def cmd_tor(args) -> int:
     return 0
 
 
+def cmd_presetadmin(args) -> int:
+    if not _helper_guard(args):
+        return 3
+    adapters = [int(x) for x in (args.adapters or "").split(",") if x.strip()]
+    res = actions.preset_admin(args.dns or "", adapters, args.doh, args.strict, args.mac_on or [], args.mac_off or [],
+                               args.fw_on or [])
+    _report(args, res.ok, res.message, res.changed)
+    print(("" if res.ok else "HATA: ") + res.message, file=None if res.ok else sys.stderr)
+    return 0 if res.ok else 1
+
+
+def cmd_preset(args) -> int:
+    from auxy.core import presets
+
+    if args.op == "list":
+        for p in presets.PRESETS.values():
+            print(f"  {p.key:<10} {p.name}\n             {p.tagline}")
+        return 0
+    state = presets.capture_state()
+    if args.op == "revert":
+        plan = presets.revert_plan(state)
+        if not plan.changes:
+            print("\n".join(plan.notes) or "Geri alınacak bir şey yok.")
+            return 0
+        results = presets.execute_revert(plan, state, actions.preset_admin)
+    else:
+        if not args.key or args.key not in presets.PRESETS:
+            print(f"HATA: ön ayar seç: {', '.join(presets.PRESETS)}", file=sys.stderr)
+            return 2
+        best = presets.resolve_best(state) if presets.SPECS[args.key]["dns"] == "best" else None
+        plan = presets.build_plan(args.key, state, best)
+        if args.op == "plan" or not plan.changes or not args.yes:
+            print(presets.describe(plan))
+            if args.op == "apply" and plan.changes:
+                print("\nUygulamak için --yes ekle.")
+            return 0
+        results = presets.execute(plan, state, actions.preset_admin)
+    for r in results:
+        print(f" {'✔' if r.ok else '✘'} {r.label}: {r.message}")
+    ok, msg = presets.summarize(results)
+    print(msg)
+    return 0 if ok else 1
+
+
 def cmd_netsvc(args) -> int:
     from auxy.core import netservices as ns
 
@@ -662,7 +706,7 @@ def cmd_revert(args) -> int:
 # her islem buradan gecer; digerleri (gui, agent, scan, vault ...) yukseltilmis surecte calismayi REDDEDER.
 ELEVATED_ALLOWED = frozenset({
     "set", "scan-cancel", "winsec-set", "exclusion", "tpm-info", "autostart", "defender-quarantine",
-    "firewall-rule", "revert-all", "netsvc", "dns", "privacy",
+    "firewall-rule", "revert-all", "netsvc", "dns", "privacy", "presetadmin",
 })
 
 
@@ -776,6 +820,23 @@ def main(argv: list[str] | None = None) -> int:
     p_tor.add_argument("op", choices=["status", "install", "start", "stop", "newnym", "verify", "proxy-on", "proxy-off"])
     p_tor.add_argument("--bridges", choices=["obfs4", "snowflake", "meek"], help="engelli ağlar için köprü türü")
     p_tor.set_defaults(func=cmd_tor)
+
+    p_pa = sub.add_parser("presetadmin", help=argparse.SUPPRESS)
+    p_pa.add_argument("--dns")
+    p_pa.add_argument("--adapters")
+    p_pa.add_argument("--doh", action="store_true")
+    p_pa.add_argument("--strict", action="store_true")
+    p_pa.add_argument("--mac-on", action="append")
+    p_pa.add_argument("--mac-off", action="append")
+    p_pa.add_argument("--fw-on", action="append")
+    p_pa.add_argument("--result", help=argparse.SUPPRESS)
+    p_pa.set_defaults(func=cmd_presetadmin)
+
+    p_pr = sub.add_parser("preset", help="Ön ayarlar: list | plan <anahtar> | apply <anahtar> --yes | revert")
+    p_pr.add_argument("op", choices=["list", "plan", "apply", "revert"])
+    p_pr.add_argument("key", nargs="?", help="hiz | guvenilir | gizli | tor | yurt")
+    p_pr.add_argument("--yes", action="store_true", help="onay sormadan uygula")
+    p_pr.set_defaults(func=cmd_preset)
 
     p_ns = sub.add_parser("netsvc", help="Ağ araçları: GoodbyeDPI hizmeti ve Cloudflare WARP (durum yönetici istemez)")
     p_ns.add_argument("op", choices=["status", *actions.NET_ADMIN_OPS, *actions.NET_WARP_OPS])

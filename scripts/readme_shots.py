@@ -71,6 +71,9 @@ privacy.get_flag = lambda key: False
 privacy.read_mac_randomization = lambda run=None: {"Wi-Fi": False}
 tor.status = lambda: tor.TorStatus(True, True, 100, "Done", "15.0.24")
 tor.system_proxy_is_tor = lambda port=9050: False
+from auxy.core import presets  # noqa: E402
+
+presets.load_record = lambda: {}
 DQ = [{"threat": "Virus:DOS/EICAR_Test_File", "path": r"C:\Users\ornek\Downloads\eicar-test.txt",
        "scheme": "file", "quarantined_at": "4.10.2026 19:54:32 (UTC)"}]
 actions.defender_quarantine_op = lambda op, path="", to_dir="": ActionResult(True, "tamam", False, DQ)
@@ -88,7 +91,7 @@ def snap(name):
 
 
 steps = [
-    ("pano", "dashboard", None), ("guvenlik", "security", None), ("ag-guvenligi", "network", None), ("dns-gizlilik", "privacy", None), ("tarama", "scan", None),
+    ("pano", "dashboard", None), ("guvenlik", "security", None), ("ag-guvenligi", "network", None), ("on-ayarlar", "presets", None), ("dns-gizlilik", "privacy", None), ("tarama", "scan", None),
     ("karantina-kasa", "quarantine", None), ("karantina-defender", "quarantine", "defender"),
     ("ayarlar", "settings", None), ("pano-koyu", "dashboard", "dark"),
 ]

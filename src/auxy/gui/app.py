@@ -13,6 +13,7 @@ from auxy.gui import viewmodel as vm
 from auxy.gui.scan_page import ScanPage
 from auxy.gui import theme
 from auxy.gui.network_page import NetworkPage
+from auxy.gui.presets_page import PresetsPage
 from auxy.gui.privacy_page import PrivacyPage
 from auxy.gui.security_page import SecurityPage
 from auxy.gui.settings_page import SettingsPage
@@ -32,6 +33,7 @@ MAPS_TR = {"Kapalı": "off", "Temel": "basic", "Gelişmiş": "advanced"}
 
 NAV = (
     ("dashboard", "Pano"),
+    ("presets", "Ön ayarlar"),
     ("security", "Güvenlik"),
     ("network", "Ağ güvenliği"),
     ("privacy", "DNS ve gizlilik"),
@@ -269,6 +271,7 @@ class App(ctk.CTk, _DnD):
         self.log_page = LogPage(content)
         self.pages: dict[str, ctk.CTkFrame] = {
             "dashboard": self.dashboard,
+            "presets": PresetsPage(content, self),
             "security": SecurityPage(content, self),
             "network": NetworkPage(content, self),
             "privacy": PrivacyPage(content, self),
@@ -358,6 +361,8 @@ class App(ctk.CTk, _DnD):
             self.pages["settings"].load_into_widgets()
         elif key == "security":
             self.pages["security"].refresh()
+        elif key == "presets":
+            self.pages["presets"].refresh()
         elif key == "privacy":
             self.pages["privacy"].refresh()
         elif key == "network":

@@ -1,5 +1,14 @@
 # Sürüm notları
 
+## 1.4.0 — 2026-10-11
+
+### Yeni: Ön ayarlar
+- **Tek tıkla çoklu ayar:** *En iyi hız*, *En güvenilir bağlantı*, *En gizli bağlantı*, *Maksimum gizlilik (Tor)*, *Yurt / kısıtlı ağ*. Her biri DNS, şifreli DNS, WARP, Tor, gizlilik anahtarları, rastgele MAC ve güvenlik duvarı profillerini birlikte ayarlar.
+- **Önce plan, sonra onay:** ne değişeceği (önce → sonra), uyarılar (WARP/GoodbyeDPI DNS'i geçersiz kılıyorsa) ve atlananlar gösterilir; zaten istenen değerdekiler değiştirilmez.
+- **Tek UAC:** yönetici gerektiren tüm adımlar (DNS, rastgele MAC, güvenlik duvarı) tek yükseltilmiş süreçte çalışır.
+- **'En iyi hız' ve 'Yurt' ölçüm kullanır:** bu ağdaki en hızlı, kirletmeyen DNS seçilir.
+- **Geri alma:** uygulamadan önce önceki durum kaydedilir; *Önceki ayarlara dön* DNS'i (eski elle ayar ya da otomatik), WARP, Tor, vekil, gizlilik anahtarları ve MAC'i geri yükler. Ön ayarlar art arda uygulansa da ilk (asıl) durum korunur.
+- CLI: `auxy preset list | plan <ad> | apply <ad> --yes | revert`.
 ## 1.3.0 — 2026-10-11
 
 ### Yeni: DNS ve gizlilik sayfası
