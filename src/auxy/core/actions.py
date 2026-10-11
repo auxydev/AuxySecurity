@@ -250,6 +250,78 @@ def net_op(op: str, value: str = "") -> ActionResult:
     return run_elevated(["netsvc", op, value] if value else ["netsvc", op])
 
 
+DNS_ADMIN_OPS = ("apply", "reset", "flush")
+PRIVACY_ADMIN_OPS = ("mac-on", "mac-off")
+
+
+def run_dns_op(op: str, value: str = "", adapters: list[int] | None = None, doh: bool = False,
+               strict: bool = False) -> ActionResult:
+    """DNS islemini bu surecte yapar (yonetici gerekir)."""
+    from auxy.core import dns
+
+    try:
+        if op == "apply":
+            return ActionResult(True, dns.apply(value, list(adapters or []), doh, strict), True)
+        if op == "reset":
+            return ActionResult(True, dns.reset(list(adapters or [])), True)
+        if op == "flush":
+            return ActionResult(True, dns.flush_cache(), True)
+    except AuxyError as exc:
+        return ActionResult(False, str(exc))
+    return ActionResult(False, f"Geçersiz işlem: {op!r}")
+
+
+def dns_op(op: str, value: str = "", adapters: list[int] | None = None, doh: bool = False,
+           strict: bool = False) -> ActionResult:
+    """DNS atama / sifirlama / onbellek temizleme. Yonetici gerekir (degilsek UAC). Gecersiz girdi UAC'ye gitmez."""
+    from auxy.core import dns
+
+    if op not in DNS_ADMIN_OPS:
+        return ActionResult(False, f"Geçersiz işlem: {op!r}")
+    try:
+        if op == "apply":
+            _v4, _v6, template, _n = dns.resolve_servers(value)  # girdiyi UAC'den ONCE doğrula
+            if doh and not template:
+                return ActionResult(False, "Bu DNS için şifreli (DoH) adres bilinmiyor.")
+        if op in ("apply", "reset") and not adapters:
+            return ActionResult(False, "En az bir ağ bağdaştırıcısı seç.")
+    except AuxyError as exc:
+        return ActionResult(False, str(exc))
+    if system.is_admin():
+        return run_dns_op(op, value, adapters, doh, strict)
+    args = ["dns", op] + ([value] if value else [])
+    if adapters:
+        args += ["--adapters", ",".join(str(int(a)) for a in adapters)]
+    if doh:
+        args.append("--doh")
+    if strict:
+        args.append("--strict")
+    return run_elevated(args, timeout_s=120)
+
+
+def run_privacy_op(op: str, value: str = "") -> ActionResult:
+    from auxy.core import privacy
+
+    try:
+        if op in ("mac-on", "mac-off"):
+            return ActionResult(True, privacy.set_mac_randomization(op == "mac-on", value), True)
+        key, _, state = op.rpartition("-")
+        if key in privacy.FLAGS and state in ("on", "off"):
+            return ActionResult(True, privacy.set_flag(key, state == "on"), True)
+    except AuxyError as exc:
+        return ActionResult(False, str(exc))
+    return ActionResult(False, f"Geçersiz işlem: {op!r}")
+
+
+def privacy_op(op: str, value: str = "") -> ActionResult:
+    """Gizlilik ayarlari. Reklam kimligi/kisisellestirme (HKCU) yonetici ISTEMEZ; MAC rastgelelestirme ister (UAC)."""
+    if op in PRIVACY_ADMIN_OPS and not system.is_admin():
+        if not value or any(c in value for c in '"\r\n'):
+            return ActionResult(False, "Geçersiz arayüz adı.")
+        return run_elevated(["privacy", op, value])
+    return run_privacy_op(op, value)
+
+
 def read_tpm() -> ActionResult:
     from auxy.core import winsec
 

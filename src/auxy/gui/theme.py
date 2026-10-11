@@ -36,7 +36,7 @@ SIDEBAR_ICON = ("#475569", "#aab6cc")    # simge cizim renkleri (acik, koyu)
 
 FONT_FAMILY = "Segoe UI"
 ICON_FONT = r"C:\Windows\Fonts\SegoeIcons.ttf"  # Windows 11 (Segoe Fluent Icons); yoksa simgesiz devam
-GLYPHS = {"dashboard": "\ue80f", "security": "\uea18", "network": "\ue774", "scan": "\ue721", "quarantine": "\ue72e",
+GLYPHS = {"dashboard": "\ue80f", "security": "\uea18", "network": "\ue774", "privacy": "\ue7b3", "scan": "\ue721", "quarantine": "\ue72e",
           "settings": "\ue713", "log": "\ue7c3"}
 
 _applied = False

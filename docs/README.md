@@ -18,6 +18,7 @@ yapılanlar, kararlar, **kabul kriterleri ve gerçek sonuçlar**, performans, **
 | [M07 – Gerçek zamanlı yardımcılar](milestones/M07-realtime-helpers.md) | Klasör izleme, olay aboneliği, USB, zamanlama, sağ tık |
 | [B01 – Eksik tamamlama](milestones/B01-eksik-tamamlama.md) | M0–M7'de ertelenenlerin tamamlanması ve bulunan hatalar |
 | [M08 – Sağlamlaştırma](milestones/M08-hardening.md) | Çökme kurtarma, bellek, `doctor`, güvenlik gözden geçirmesi, kapsam, temiz kurulum |
+| [M11 – DNS, gizlilik, Tor](milestones/M11-dns-privacy.md) | DNS seçimi + ölçüm, DoH, gizlilik ayarları, Tor (SOCKS5), v1.3.0 |
 | [M10 – Ağ güvenliği](milestones/M10-network.md) | Ağ güvenliği sayfası, GoodbyeDPI + WARP yönetimi, kurulumda otomatik kurulum, yeni logo/tray rozeti, v1.1.0 |
 | [M09 – Paketleme](milestones/M09-packaging.md) | PyInstaller, kurulum/kaldırma programı, eski veri taşıma, yeniden başlatma düzeltmesi, v1.0.0 |
 

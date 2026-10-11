@@ -1,5 +1,18 @@
 # Sürüm notları
 
+## 1.3.0 — 2026-10-11
+
+### Yeni: DNS ve gizlilik sayfası
+- **DNS seçimi:** Cloudflare, Google, Quad9, AdGuard, OpenDNS ya da özel IP; seçili ağlara atama (UAC), ilk değişiklikte eski ayar yedeklenir, 'Eski haline döndür'.
+- **Hız ve güvenlik testi:** her DNS'e gerçek sorgu; hız, HTTPS/443 erişilebilirliği ve NXDOMAIN kirletme (ağın DNS'i yönlendiriyor mu) tespiti. 'En iyisini seç'.
+- **Şifreli DNS (DoH)** + 'Sıkı mod' (şifresize düşme). GoodbyeDPI '--dns-addr' DNS'i yönlendiriyorsa uyarır.
+- **Gizlilik:** reklam kimliği, kişiselleştirilmiş deneyimler, rastgele Wi-Fi MAC adresi, isteğe bağlı 'Ağ bilgimi göster'.
+- **Tor (SOCKS5 vekili, VPN değil):** resmi paket dist.torproject.org'dan indirilir ve SHA-256 doğrulanır; başlat/durdur, bağlanma yüzdesi, köprüler (obfs4/snowflake/meek), yeni kimlik, Windows vekili anahtarı, Tor üzerinden doğrulama.
+- CLI: `auxy dns|privacy|tor`.
+
+### Not
+- ODTÜ DNS'i yalnızca ODTÜ ağından (144.122.0.0/16) kullanılabilir; yurttan çalışmaz, bu yüzden hazır ayar yok: yerine ölçüm var.
+
 ## 1.1.2 — 2026-10-05
 
 ### Düzeltilen (aydınlık mod)

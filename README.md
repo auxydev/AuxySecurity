@@ -7,8 +7,8 @@ Hafif bir tray ajanı · şifreli karantina kasası · tarama yöneticisi · gü
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Platform](https://img.shields.io/badge/Windows-11-0078D4?logo=windows11&logoColor=white)
-![Tests](https://img.shields.io/badge/testler-453%20geçiyor-2e9e5b)
-![Kapsam](https://img.shields.io/badge/kapsam-%25_87-2e9e5b)
+![Tests](https://img.shields.io/badge/testler-489%20geçiyor-2e9e5b)
+![Kapsam](https://img.shields.io/badge/kapsam-%25_86-2e9e5b)
 ![Durum](https://img.shields.io/badge/durum-geliştirme%20(v0.x)-d9932b)
 
 <img src="docs/screenshots/pano.png" alt="AuxySecurity panosu" width="720">
@@ -54,6 +54,7 @@ odaklı bir **kontrol paneli** sunar:
 | **Defender karantinası** | Defender'ın kendi karantinasını listele ve geri yükle, etkin tehditleri temizle, (onaylı) çevrimdışı tarama |
 | **Güvenlik** | SmartScreen, çekirdek yalıtımı (bellek bütünlüğü), Secure Boot / TPM / exploit protection durumu, Defender dışlamaları |
 | **Ağ güvenliği** | Güvenlik duvarı profilleri ve gelen bağlantı eylemi, kural listesi (pasifleştir / geri aç), program engelleme; **GoodbyeDPI** hizmeti (durum, başlat/kapat, otomatik başlatma, güvenli konuma taşıma); **Cloudflare WARP** (bağlan/kes, protokol MASQUE ↔ WireGuard, çalışma kipi). Kurulum programı ikisini de arka planda kurar |
+| **DNS ve gizlilik** | DNS seçimi (Cloudflare/Google/Quad9/AdGuard/özel) + **ölçüm tabanlı hız/güvenlik testi** (yavaş ya da müdahaleci ağ DNS'ini ortaya çıkarır), şifreli DNS (DoH), reklam kimliği / rastgele MAC, **Tor** (SOCKS5 vekili; köprü, yeni kimlik, doğrulama) |
 | **Otomasyon** | İndirilenler klasörünü izleme, Defender tehdit bildirimleri (olay günlüğü aboneliği), USB tarama, haftalık zamanlanmış tarama (boştayken), Windows açılışında başlatma |
 | **Tanı ve bakım** | `auxy doctor` (ortam/kurulum tanısı, hiçbir şeyi değiştirmez), `auxy cleanup` (kaldırma temizliği), `auxy revert-all` |
 | **CLI** | Her şeyin komut satırı karşılığı (`auxy status`, `auxy scan quick`, `auxy vault add …`) |
@@ -67,6 +68,9 @@ Hepsi **geri alınabilir** olacak şekilde tasarlandı: bir ayarı ilk değişti
 <tr>
 <td><img src="docs/screenshots/guvenlik.png" alt="Güvenlik"><br><sub><b>Güvenlik</b>: SmartScreen, cihaz güvenliği, dışlamalar</sub></td>
 <td><img src="docs/screenshots/ag-guvenligi.png" alt="Ağ güvenliği"><br><sub><b>Ağ güvenliği</b>: GoodbyeDPI, WARP, güvenlik duvarı</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/dns-gizlilik.png" alt="DNS ve gizlilik"><br><sub><b>DNS ve gizlilik</b>: DNS seçimi, hız testi, Tor</sub></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/tarama.png" alt="Tarama"><br><sub><b>Tarama</b>: tehditler ve geçmiş</sub></td>
@@ -128,7 +132,7 @@ yüksek yetkiyle (her açılışta UAC sorulmadan) başlar.
 ## Kullanım
 
 ### Pencere ve tray
-`python -m auxy gui` ile açılan pencerede **Pano · Güvenlik · Ağ güvenliği · Tarama · Karantina · Ayarlar · Günlük** sayfaları var.
+`python -m auxy gui` ile açılan pencerede **Pano · Güvenlik · Ağ güvenliği · DNS ve gizlilik · Tarama · Karantina · Ayarlar · Günlük** sayfaları var.
 Bir ayarı değiştirmek yönetici izni gerektiriyorsa standart Windows UAC penceresi açılır; reddedersen hiçbir şey
 değişmez ve anahtar gerçek duruma döner.
 
@@ -145,6 +149,7 @@ değişmez ve anahtar gerçek duruma döner.
 | `auxy defender-quarantine list` · `restore <yol>` · `clean` | Defender'ın kendi karantinası (UAC) |
 | `auxy winsec-get` · `winsec-set fw_private off` · `winsec-revert` | Güvenlik duvarı, SmartScreen, çekirdek yalıtımı |
 | `auxy firewall-rule list` · `disable <ad>` · `block <program>` | Güvenlik duvarı kuralları |
+| `auxy dns status` · `dns bench` · `dns apply cloudflare --doh` · `privacy status` · `tor start` | DNS, gizlilik, Tor |
 | `auxy netsvc status` · `gdpi-start/-stop` · `warp-connect` · `warp-protocol MASQUE` | GoodbyeDPI ve WARP |
 | `auxy exclusion list path` · `add path C:\proje` | Defender dışlamaları |
 | `auxy autostart install` · `context-menu install` | Başlangıç görevi, sağ tık menüsü |
@@ -216,7 +221,7 @@ Gerçek makinede ölçüldü (Windows 11):
 ## Geliştirme
 
 ```powershell
-pytest -q                           # 453 test, ~40 sn (GUI testleri dahil), kapsam %87
+pytest -q                           # 489 test, ~40 sn (GUI testleri dahil), kapsam %86
 python -m auxy doctor               # ortam tanısı
 python scripts\unused_imports.py src
 ```
@@ -233,9 +238,9 @@ AuxySecurity/
 ├─ src/auxy/
 │  ├─ core/      Defender, tarama, kasa, güvenlik duvarı, SmartScreen, dışlamalar, UAC akışı …
 │  ├─ agent/     tray ajanı, klasör izleme, olay aboneliği, USB, zamanlayıcı
-│  ├─ gui/       pencere, sayfalar (pano, güvenlik, ağ güvenliği, tarama, karantina, ayarlar)
+│  ├─ gui/       pencere, sayfalar (pano, güvenlik, ağ güvenliği, DNS ve gizlilik, tarama, karantina, ayarlar)
 │  └─ __main__.py   CLI
-├─ tests/        pytest (453 test)
+├─ tests/        pytest (489 test)
 ├─ scripts/      gerçek makine testleri, ölçümler, ekran görüntüsü üretimi
 ├─ docs/         milestone dokümanları, mimari kararlar, ekran görüntüleri
 ├─ PLAN.md       kapsamlı proje planı

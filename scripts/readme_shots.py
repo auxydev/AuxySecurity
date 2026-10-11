@@ -62,6 +62,15 @@ netservices.read_service = lambda name=netservices.GDPI_SERVICE: netservices.Ser
 netservices.read_warp = lambda: netservices.WarpInfo(True, "Connected", "NetworkHealthy", "warp+doh", "MASQUE", True)
 netservices.bundled_tools_dir = lambda: None
 netservices.trusted_location = lambda *a, **k: True
+
+# dns / gizlilik / tor: ornek durum
+from auxy.core import dns, privacy, tor  # noqa: E402
+
+dns.read_adapters = lambda run=None: [dns.Adapter(12, "Wi-Fi", "Intel Wi-Fi", "{g}", "wifi", ("10.0.0.1",), (), False)]
+privacy.get_flag = lambda key: False
+privacy.read_mac_randomization = lambda run=None: {"Wi-Fi": False}
+tor.status = lambda: tor.TorStatus(True, True, 100, "Done", "15.0.24")
+tor.system_proxy_is_tor = lambda port=9050: False
 DQ = [{"threat": "Virus:DOS/EICAR_Test_File", "path": r"C:\Users\ornek\Downloads\eicar-test.txt",
        "scheme": "file", "quarantined_at": "4.10.2026 19:54:32 (UTC)"}]
 actions.defender_quarantine_op = lambda op, path="", to_dir="": ActionResult(True, "tamam", False, DQ)
@@ -79,7 +88,7 @@ def snap(name):
 
 
 steps = [
-    ("pano", "dashboard", None), ("guvenlik", "security", None), ("ag-guvenligi", "network", None), ("tarama", "scan", None),
+    ("pano", "dashboard", None), ("guvenlik", "security", None), ("ag-guvenligi", "network", None), ("dns-gizlilik", "privacy", None), ("tarama", "scan", None),
     ("karantina-kasa", "quarantine", None), ("karantina-defender", "quarantine", "defender"),
     ("ayarlar", "settings", None), ("pano-koyu", "dashboard", "dark"),
 ]

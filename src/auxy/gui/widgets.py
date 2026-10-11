@@ -61,7 +61,7 @@ class Card(ctk.CTkFrame):
         title.pack(anchor="w")
         title.hint_label = None
         if hint:
-            title.hint_label = ctk.CTkLabel(box, text=hint, anchor="w", justify="left", wraplength=WRAP,
+            title.hint_label = ctk.CTkLabel(box, text=hint, anchor="w", justify="left", wraplength=430,
                                             text_color=theme.MUTED, font=ctk.CTkFont(size=12))
             title.hint_label.pack(anchor="w")
         return title

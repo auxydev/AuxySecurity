@@ -12,6 +12,10 @@ Kapsam dışı fikirler buraya girer; mevcut milestone genişlemez. (Güncel: 20
 - GoodbyeDPI Başlat/Kapat/otomatik başlatma, WARP Bağlan/Kes, protokol (MASQUE↔WireGuard) ve kip değiştirme: gerçek ağda dene
 - Sıfırdan makinede kurucunun `winget` ile WARP kurması
 
+## Fiziksel olarak doğrulanması gerekenler (M11)
+- DNS'i gerçekten atama + DoH + Sıkı mod, 'Eski haline döndür'; rastgele Wi-Fi MAC
+- Tor'u gerçekten indirme/çalıştırma, köprüler (obfs4/snowflake), Windows vekili
+
 ## Fikirler
 - YARA kural taraması
 - VirusTotal hash sorgusu (yalnızca hash, opt-in)
@@ -23,6 +27,7 @@ Kapsam dışı fikirler buraya girer; mevcut milestone genişlemez. (Güncel: 20
 - Kasa: arama, etiket, sayfalama
 - GoodbyeDPI ön ayar seçici (Türkiye alternatifleri), WARP split-tunnel listesi
 - GoodbyeDPI ön ayar seçici (Türkiye alternatifleri), WARP split-tunnel listesi
+- Gerçek 'Tor VPN' (TUN sürücüsü + tun2socks), VPN kill-switch, DNS-sızıntı testi, DNS ile reklam/zararlı alan adı engelleme
 - Çoklu dil (i18n altyapısı; arayüz şu an Türkçe)
 
 ## Bilinçli olarak yapılmayanlar (neden: ilgili milestone dokümanı)

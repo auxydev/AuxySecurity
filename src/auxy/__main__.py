@@ -388,6 +388,79 @@ def cmd_firewall_rule(args) -> int:
     return 0
 
 
+def cmd_dns(args) -> int:
+    from auxy.core import dns
+
+    if args.op == "status":
+        for a in dns.read_adapters():
+            print(f"  [{a.index}] {a.name} ({a.kind}): {dns.describe_servers(a)}")
+        return 0
+    if args.op == "bench":
+        extra = [(a.v4[0], f"Şu anki ({a.name})") for a in dns.read_adapters() if a.v4]
+        results = dns.benchmark(extra)
+        for r in results:
+            ms = "yanıt yok" if r.ms is None else f"{r.ms:.0f} ms"
+            flags = ("  ⚠ sahte yanıt (kirletme)" if r.hijacked else "") + ("" if r.tcp443_ms else "  (443 kapalı)")
+            print(f"  {r.label:<30} {r.server:<16} {ms:<10} hata {r.failed}/{r.total}{flags}")
+        b = dns.best(results)
+        print(f"En iyi: {b.label}" if b else "Güvenilir sonuç yok.")
+        return 0
+    if not _helper_guard(args):
+        return 3
+    adapters = [int(x) for x in args.adapters.split(",") if x.strip()] if args.adapters else []
+    res = actions.dns_op(args.op, args.value or "", adapters, args.doh, args.strict)
+    _report(args, res.ok, res.message, res.changed)
+    print(("" if res.ok else "HATA: ") + res.message, file=None if res.ok else sys.stderr)
+    return 0 if res.ok else 1
+
+
+def cmd_privacy(args) -> int:
+    from auxy.core import privacy
+
+    if args.op == "status":
+        for k, (_p, _n, label, _h) in privacy.FLAGS.items():
+            v = privacy.get_flag(k)
+            print(f"  {label}: {'varsayılan (açık)' if v is None else ('açık' if v else 'kapalı')}")
+        for iface, on in privacy.read_mac_randomization().items():
+            print(f"  Rastgele MAC ({iface}): {'açık' if on else 'kapalı'}")
+        return 0
+    if not _helper_guard(args, needs_admin=args.op in actions.PRIVACY_ADMIN_OPS):
+        return 3
+    res = actions.privacy_op(args.op, args.value or "")
+    _report(args, res.ok, res.message, res.changed)
+    print(("" if res.ok else "HATA: ") + res.message, file=None if res.ok else sys.stderr)
+    return 0 if res.ok else 1
+
+
+def cmd_tor(args) -> int:
+    from auxy.core import tor
+
+    try:
+        if args.op == "status":
+            st = tor.status()
+            print("Tor: kurulu değil" if not st.installed else
+                  f"Tor {st.version}: {'çalışıyor, %' + str(st.bootstrap) + ' ' + st.summary if st.running else 'durdu'}")
+            return 0
+        if args.op == "install":
+            print(tor.install(progress=print))
+        elif args.op == "start":
+            bridges = tor.bridge_lines(args.bridges) if args.bridges else None
+            print(tor.start(bridges))
+        elif args.op == "stop":
+            print(tor.stop())
+        elif args.op == "newnym":
+            print(tor.new_identity())
+        elif args.op == "verify":
+            r = tor.check_tor()
+            print(f"Tor üzerinden çıkıyor: {'EVET' if r.get('IsTor') else 'HAYIR'} (IP {r.get('IP')})")
+        elif args.op in ("proxy-on", "proxy-off"):
+            print(tor.set_system_proxy(args.op == "proxy-on"))
+    except (AuxyError, OSError) as exc:
+        print(f"HATA: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_netsvc(args) -> int:
     from auxy.core import netservices as ns
 
@@ -589,7 +662,7 @@ def cmd_revert(args) -> int:
 # her islem buradan gecer; digerleri (gui, agent, scan, vault ...) yukseltilmis surecte calismayi REDDEDER.
 ELEVATED_ALLOWED = frozenset({
     "set", "scan-cancel", "winsec-set", "exclusion", "tpm-info", "autostart", "defender-quarantine",
-    "firewall-rule", "revert-all", "netsvc",
+    "firewall-rule", "revert-all", "netsvc", "dns", "privacy",
 })
 
 
@@ -683,6 +756,26 @@ def main(argv: list[str] | None = None) -> int:
     p_dq.add_argument("--yes", action="store_true", help="offline-scan: yeniden başlatmayı onayla")
     p_dq.add_argument("--result", help=argparse.SUPPRESS)
     p_dq.set_defaults(func=cmd_defender_quarantine)
+
+    p_dns = sub.add_parser("dns", help="DNS: durum, hız testi, ata/sıfırla (atama yönetici ister)")
+    p_dns.add_argument("op", choices=["status", "bench", "apply", "reset", "flush"])
+    p_dns.add_argument("value", nargs="?", help="apply: cloudflare|google|quad9|adguard|opendns ya da virgüllü IP")
+    p_dns.add_argument("--adapters", help="bağdaştırıcı numaraları (status çıktısındaki [n]), virgülle")
+    p_dns.add_argument("--doh", action="store_true", help="şifreli DNS (DoH) kullan")
+    p_dns.add_argument("--strict", action="store_true", help="DoH başarısızsa şifresiz DNS'e DÜŞME")
+    p_dns.add_argument("--result", help=argparse.SUPPRESS)
+    p_dns.set_defaults(func=cmd_dns)
+
+    p_pv = sub.add_parser("privacy", help="Gizlilik: reklam kimliği, kişiselleştirme, rastgele MAC")
+    p_pv.add_argument("op", choices=["status", "mac-on", "mac-off", "ad_id-on", "ad_id-off", "tailored-on", "tailored-off"])
+    p_pv.add_argument("value", nargs="?", help="mac-*: Wi-Fi arayüz adı (ör. Wi-Fi)")
+    p_pv.add_argument("--result", help=argparse.SUPPRESS)
+    p_pv.set_defaults(func=cmd_privacy)
+
+    p_tor = sub.add_parser("tor", help="Tor: kur, başlat/durdur, yeni kimlik, doğrula (VPN değil: SOCKS5 vekili)")
+    p_tor.add_argument("op", choices=["status", "install", "start", "stop", "newnym", "verify", "proxy-on", "proxy-off"])
+    p_tor.add_argument("--bridges", choices=["obfs4", "snowflake", "meek"], help="engelli ağlar için köprü türü")
+    p_tor.set_defaults(func=cmd_tor)
 
     p_ns = sub.add_parser("netsvc", help="Ağ araçları: GoodbyeDPI hizmeti ve Cloudflare WARP (durum yönetici istemez)")
     p_ns.add_argument("op", choices=["status", *actions.NET_ADMIN_OPS, *actions.NET_WARP_OPS])
