@@ -1,6 +1,6 @@
 # AuxySecurity: GitHub'daki en yeni surumu derleyip kurar; once eski kurulumu kaldirir. Ayarlar ve karantina kasasi korunur.
 # Kullanim (YONETICI PowerShell):
-#   irm https://raw.githubusercontent.com/auxydev/auxysecurity/main/scripts/reinstall.ps1 | iex
+#   irm https://raw.githubusercontent.com/auxydev/AuxySecurity/main/scripts/reinstall.ps1 | iex
 # Gereksinim: git ve Python 3.12+ (py ya da python komutu). Kaynak: %USERPROFILE%\AuxySecurity-src
 $ErrorActionPreference = "Stop"
 
@@ -26,7 +26,7 @@ if (Test-Path (Join-Path $src ".git")) {
     git -C $src reset --quiet --hard origin/main
 } else {
     if (Test-Path $src) { throw "$src var ama git deposu degil; adini degistir ya da sil." }
-    git clone --quiet https://github.com/auxydev/auxysecurity.git $src
+    git clone --quiet https://github.com/auxydev/AuxySecurity.git $src
 }
 Set-Location $src
 "Surum: " + (git log -1 --format="%h %s")
