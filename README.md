@@ -7,9 +7,9 @@ Hafif bir tray ajanı · şifreli karantina kasası · tarama yöneticisi · gü
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Platform](https://img.shields.io/badge/Windows-11-0078D4?logo=windows11&logoColor=white)
-![Tests](https://img.shields.io/badge/testler-516%20geçiyor-2e9e5b)
+![Tests](https://img.shields.io/badge/testler-528%20geçiyor-2e9e5b)
 ![Kapsam](https://img.shields.io/badge/kapsam-%25_86-2e9e5b)
-![Durum](https://img.shields.io/badge/durum-geliştirme%20(v0.x)-d9932b)
+![Durum](https://img.shields.io/badge/sürüm-1.4.1-2e9e5b)
 
 <img src="docs/screenshots/pano.png" alt="AuxySecurity panosu" width="720">
 
@@ -103,6 +103,17 @@ AuxySecurity-Setup.exe /S /AUTOSTART /CONTEXTMENU   # ayrıca /DIR=... /DESKTOP 
 
 Kurulum, uygulamayla gelen **GoodbyeDPI**'ı hizmet olarak kaydeder (zaten kuruluysa ayarları korunur, exe güvenli konuma taşınır) ve **WARP** yoksa resmi paketi winget ile arka planda kurar; istemezsen /NOGDPI /NOWARP.
 
+### Tek komutla güncelle / yeniden kur
+
+GitHub'daki en yeni sürümü derleyip kurar; önce eski kurulumu kaldırır (**ayarların ve karantina kasan korunur**).
+Git ve Python 3.12+ gerekir. **Yönetici** PowerShell'de:
+
+```powershell
+irm https://raw.githubusercontent.com/auxydev/AuxySecurity/main/scripts/reinstall.ps1 | iex
+```
+
+Kaynak `%USERPROFILE%\AuxySecurity-src` klasörüne indirilir, derleme birkaç dakika sürer. Betik: [scripts/reinstall.ps1](scripts/reinstall.ps1).
+
 Kaldırma: *Ayarlar → Uygulamalar* ya da `AuxySecurity.exe uninstall` (ayarların ve karantina kasan korunur). Kurulum programını kendin üretmek için: `scripts\build.ps1` ardından `scripts\build_installer.ps1` ([M9](docs/milestones/M09-packaging.md)). Sürüm notları: [CHANGELOG](CHANGELOG.md).
 
 ### Kaynaktan (geliştirme)
@@ -139,6 +150,29 @@ yüksek yetkiyle (her açılışta UAC sorulmadan) başlar.
 `python -m auxy gui` ile açılan pencerede **Pano · Ön ayarlar · Güvenlik · Ağ güvenliği · DNS ve gizlilik · Tarama · Karantina · Ayarlar · Günlük** sayfaları var.
 Bir ayarı değiştirmek yönetici izni gerektiriyorsa standart Windows UAC penceresi açılır; reddedersen hiçbir şey
 değişmez ve anahtar gerçek duruma döner.
+
+### Ağa bağlı DNS (kampüs, yurt, otel ağları)
+
+Elle seçilen DNS (ör. Cloudflare 1.1.1.1) bağlandığın **her** ağda geçerli olur. Kampüs, yurt, otel ve kafe ağları
+giriş sayfasını (captive portal) yalnızca kendi DNS'leriyle açtığı için bu ağlarda "bağlı ama internet yok, giriş
+sayfası gelmiyor" sorunu çıkar. Çözüm:
+
+1. Evdeyken *DNS ve gizlilik → Şu anki ağı güvenilenlere ekle*.
+2. *Yalnızca güvendiğim ağlarda* anahtarını aç, DNS'i seç, *Uygula*.
+
+Artık seçtiğin DNS yalnızca listedeki ağlarda kullanılır. Başka bir ağa bağlandığında tray ajanı bunu fark eder,
+DNS'i otomatiğe (ağın kendi DNS'i) alır ve bildirim gösterir. Yalnızca AuxySecurity'nin atadığı DNS geri alınır;
+elle ya da başka bir araçla yaptığın ayara dokunulmaz. Komut satırı:
+
+```powershell
+auxy dns-scope add                 # şu anki ağı güvenilenlere ekle (ya da: dns-scope add "EvWifi")
+auxy dns-scope on cloudflare --doh # kuralı aç
+auxy dns-scope status              # kural, güvenilen ağlar ve şu anki durum
+auxy dns-scope off                 # kuralı kapat (şu anki DNS'i geri almak için: dns reset)
+```
+
+> Kural kapalıyken DNS'in seni bir ağda kilitlediyse (giriş sayfası gelmiyor): yönetici PowerShell'de
+> `netsh interface ipv4 set dnsservers "Wi-Fi" source=dhcp` (IPv6 için `ipv4` yerine `ipv6`).
 
 ### Komut satırı
 
@@ -209,7 +243,7 @@ Bunlar bilinçli ve belgelenmiş sınırlardır:
 - **Python Store sürümü:** Uygulama verisi Python paketinin özel alanında durur; paketi kaldırmak kasayı da siler. Anahtar yedeğini mutlaka al.
 - **Anahtar Windows kullanıcısına bağlı (DPAPI):** Profil kaybolursa yedek olmadan kasa açılamaz.
 - **UAC ile çalışan kod yazılabilir dizinlerden gelir:** Geliştirme kurulumunda `.venv` ve `src` kullanıcı tarafından yazılabilir; bu hesapta çalışan zararlı bir program yönetici yetkisi kazanabilir. `auxy doctor` ve Ayarlar bunu uyarır, yüksek yetkili başlangıç görevi kurarken onay ister. Kurulu (`Program Files`) sürüm bu riski kapatır (`auxy doctor` doğrular); imzalama için `scripts/sign.ps1` hazır, sertifika sende. Ayrıntı: [güvenlik gözden geçirmesi](docs/security-review.md).
-- **Doğrulanmayanlar:** Gerçek USB, haftalık tetiklenme, oturum açılışı, bildirim balonu ve çevrimdışı tarama (yeniden başlatır) gerçek ortamda denenmedi. Ayrıntı: [B01](docs/milestones/B01-eksik-tamamlama.md).
+- **Doğrulanmayanlar:** Gerçek USB, haftalık tetiklenme, oturum açılışı, bildirim balonu ve çevrimdışı tarama (yeniden başlatır) gerçek ortamda denenmedi. Ağa bağlı DNS'in ağ değişince kendiliğinden uygulanması da henüz gerçek makinede doğrulanmadı (ağ adı, Windows'un bağlantı profili adıdır; Wi-Fi'da genelde SSID). Ayrıntı: [B01](docs/milestones/B01-eksik-tamamlama.md).
 
 ## Performans
 
@@ -226,7 +260,7 @@ Gerçek makinede ölçüldü (Windows 11):
 ## Geliştirme
 
 ```powershell
-pytest -q                           # 516 test, ~40 sn (GUI testleri dahil), kapsam %86
+pytest -q                           # 528 test, ~40 sn (GUI testleri dahil), kapsam %86
 python -m auxy doctor               # ortam tanısı
 python scripts\unused_imports.py src
 ```
@@ -245,7 +279,7 @@ AuxySecurity/
 │  ├─ agent/     tray ajanı, klasör izleme, olay aboneliği, USB, zamanlayıcı
 │  ├─ gui/       pencere, sayfalar (pano, ön ayarlar, güvenlik, ağ güvenliği, DNS ve gizlilik, tarama, karantina, ayarlar)
 │  └─ __main__.py   CLI
-├─ tests/        pytest (516 test)
+├─ tests/        pytest (528 test)
 ├─ scripts/      gerçek makine testleri, ölçümler, ekran görüntüsü üretimi
 ├─ docs/         milestone dokümanları, mimari kararlar, ekran görüntüleri
 ├─ PLAN.md       kapsamlı proje planı
@@ -270,6 +304,7 @@ AuxySecurity/
 | [M10](docs/milestones/M10-network.md) | Ağ güvenliği sayfası: GoodbyeDPI + WARP, kurulumda otomatik kurulum, yeni logo/tray rozeti | ✔ |
 | [M11](docs/milestones/M11-dns-privacy.md) | DNS seçimi + hız/güvenlik testi + DoH, gizlilik ayarları, Tor | ✔ |
 | [M12](docs/milestones/M12-presets.md) | Ön ayarlar: tek tıkla çoklu ayar, plan + onay, tek UAC, geri alma | ✔ |
+| [1.4.1](CHANGELOG.md) | Ağa bağlı DNS (yalnızca güvenilen ağlarda; kampüs giriş sayfası bozulmaz), 'Eski haline döndür' düzeltmesi, tek komutla yeniden kurulum | ✔ |
 
 Fikirler ve ertelenenler: [BACKLOG.md](BACKLOG.md).
 
