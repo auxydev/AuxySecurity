@@ -40,8 +40,12 @@ if ($LASTEXITCODE -ne 0) { throw "pip kurulumu basarisiz" }
 
 # Derleme ESKI surum kaldirilmadan once: build.ps1 GoodbyeDPI'i calisan hizmetin klasorunden paketler.
 Step "Uygulama derleniyor (birkac dakika surebilir)"
-& (Join-Path $src "scripts\build.ps1")
-& (Join-Path $src "scripts\build_installer.ps1")
+# Alt betikler ayri surecte, yalnizca bu calistirma icin izinle (irm|iex ile gelindiginde ExecutionPolicy .ps1'i engeller;
+# sistem ayari DEGISTIRILMEZ).
+foreach ($b in "build.ps1", "build_installer.ps1") {
+    powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $src "scripts\$b")
+    if ($LASTEXITCODE -ne 0) { throw "$b basarisiz (cikis kodu $LASTEXITCODE)" }
+}
 $setup = Join-Path $(if ($env:AUXY_BUILD_DIR) { $env:AUXY_BUILD_DIR } else { Join-Path $env:TEMP "auxy-build" }) "AuxySecurity-Setup.exe"
 if (-not (Test-Path $setup)) { throw "Kurulum programi uretilemedi" }
 
