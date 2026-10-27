@@ -393,7 +393,8 @@ def cmd_dns(args) -> int:
 
     if args.op == "status":
         for a in dns.read_adapters():
-            print(f"  [{a.index}] {a.name} ({a.kind}): {dns.describe_servers(a)}")
+            net = f" ağ: {a.network}" if a.network else ""
+            print(f"  [{a.index}] {a.name} ({a.kind}){net}: {dns.describe_servers(a)}")
         return 0
     if args.op == "bench":
         extra = [(a.v4[0], f"Şu anki ({a.name})") for a in dns.read_adapters() if a.v4]
@@ -412,6 +413,55 @@ def cmd_dns(args) -> int:
     _report(args, res.ok, res.message, res.changed)
     print(("" if res.ok else "HATA: ") + res.message, file=None if res.ok else sys.stderr)
     return 0 if res.ok else 1
+
+
+def cmd_dns_scope(args) -> int:
+    """Ağa bağlı DNS kuralı: DNS yalnızca güvenilen ağlarda uygulanır, diğerlerinde otomatik (DHCP) kalır."""
+    from auxy.core import dns, dnsscope
+
+    rule = dnsscope.load()
+    if args.op == "status":
+        state = "AÇIK" if rule.enabled else "kapalı"
+        print(f"Ağa bağlı DNS kuralı: {state}")
+        if rule.value:
+            print(f"  DNS: {dns.resolve_servers(rule.value)[3]}" + (" (şifreli)" if rule.doh else ""))
+        print("  Güvenilen ağlar: " + (", ".join(rule.networks) or "(yok)"))
+        for a in dns.read_adapters():
+            mark = "güvenilen" if rule.trusts(a.network) else "diğer"
+            print(f"  şu an: {a.name} -> {a.network or '?'} ({mark}): {dns.describe_servers(a)}")
+        return 0
+    try:
+        if args.op == "on":
+            if not args.value:
+                print("HATA: DNS değeri gerekli (ör. cloudflare).", file=sys.stderr)
+                return 2
+            rule.enabled, rule.value, rule.doh, rule.strict = True, args.value, args.doh, args.strict
+        elif args.op == "off":
+            rule.enabled = False
+        elif args.op == "add":
+            names = [args.value] if args.value else [a.network for a in dns.read_adapters() if a.network]
+            if not names:
+                print("HATA: bağlı ağ bulunamadı; ağ adını yaz.", file=sys.stderr)
+                return 2
+            rule.networks = [*rule.networks, *names]
+        elif args.op == "remove":
+            key = (args.value or "").casefold()
+            rule.networks = [n for n in rule.networks if n.casefold() != key]
+        rule = dnsscope.validate(rule)
+    except AuxyError as exc:
+        print(f"HATA: {exc}", file=sys.stderr)
+        return 1
+    dnsscope.save(rule)
+    try:
+        system.signal_config_changed()  # calisan ajan kurali hemen yeniden uygular
+    except Exception:  # noqa: BLE001, S110 - ajan yoksa sorun degil
+        pass
+    print("Kaydedildi. Güvenilen ağlar: " + (", ".join(rule.networks) or "(yok)"))
+    if rule.enabled:
+        res = actions.dns_op("enforce")
+        print(("" if res.ok else "HATA: ") + res.message, file=None if res.ok else sys.stderr)
+        return 0 if res.ok else 1
+    return 0
 
 
 def cmd_privacy(args) -> int:
@@ -802,13 +852,22 @@ def main(argv: list[str] | None = None) -> int:
     p_dq.set_defaults(func=cmd_defender_quarantine)
 
     p_dns = sub.add_parser("dns", help="DNS: durum, hız testi, ata/sıfırla (atama yönetici ister)")
-    p_dns.add_argument("op", choices=["status", "bench", "apply", "reset", "flush"])
+    p_dns.add_argument("op", choices=["status", "bench", "apply", "reset", "flush", "enforce"],
+                       help="enforce: ağa bağlı DNS kuralını şu anki ağlara uygula (bkz. dns-scope)")
     p_dns.add_argument("value", nargs="?", help="apply: cloudflare|google|quad9|adguard|opendns ya da virgüllü IP")
     p_dns.add_argument("--adapters", help="bağdaştırıcı numaraları (status çıktısındaki [n]), virgülle")
     p_dns.add_argument("--doh", action="store_true", help="şifreli DNS (DoH) kullan")
     p_dns.add_argument("--strict", action="store_true", help="DoH başarısızsa şifresiz DNS'e DÜŞME")
     p_dns.add_argument("--result", help=argparse.SUPPRESS)
     p_dns.set_defaults(func=cmd_dns)
+
+    p_scope = sub.add_parser("dns-scope", help="Ağa bağlı DNS: yalnızca güvenilen ağlarda uygula, diğerlerinde otomatik")
+    p_scope.add_argument("op", choices=["status", "on", "off", "add", "remove"])
+    p_scope.add_argument("value", nargs="?",
+                         help="on: DNS değeri (cloudflare, 1.1.1.1 …); add/remove: ağ adı (add boşsa şu anki ağ)")
+    p_scope.add_argument("--doh", action="store_true", help="şifreli DNS (DoH) kullan")
+    p_scope.add_argument("--strict", action="store_true", help="DoH başarısızsa şifresiz DNS'e DÜŞME")
+    p_scope.set_defaults(func=cmd_dns_scope)
 
     p_pv = sub.add_parser("privacy", help="Gizlilik: reklam kimliği, kişiselleştirme, rastgele MAC")
     p_pv.add_argument("op", choices=["status", "mac-on", "mac-off", "ad_id-on", "ad_id-off", "tailored-on", "tailored-off"])

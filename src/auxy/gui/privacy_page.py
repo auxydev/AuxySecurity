@@ -6,7 +6,8 @@ from tkinter import messagebox
 
 import customtkinter as ctk
 
-from auxy.core import actions, dns, netservices, privacy, tor
+from auxy.core import actions, dns, dnsscope, netservices, privacy, system, tor
+from auxy.core.service import AuxyError
 from auxy.gui import theme
 from auxy.gui.widgets import Card, page_header
 
@@ -26,6 +27,7 @@ class PrivacyPage(ctk.CTkFrame):
         self.adapters: list[dns.Adapter] = []
         self.adapter_vars: dict[int, ctk.BooleanVar] = {}
         self.bench: list[dns.BenchResult] = []
+        self.scope = dnsscope.load()
         self._tor_token: object | None = None
 
         head = page_header(self, "DNS ve gizlilik", "Daha hızlı ve daha gizli internet: DNS seçimi, şifreli DNS ve Tor.")
@@ -60,6 +62,21 @@ class PrivacyPage(ctk.CTkFrame):
                                       "Şifreli bağlantı kurulamazsa şifresiz DNS'e DÜŞME (gizlilik ↑, ağ engelliyorsa "
                                       "internet gidebilir).")
         self.strict_sw.configure(state="disabled")
+        self.scope_sw = c.switch_row("Yalnızca güvendiğim ağlarda", self._scope_toggled,
+                                     "Seçtiğin DNS yalnızca listedeki ağlarda (ör. evdeki Wi-Fi) kullanılır. Kampüs, "
+                                     "yurt, kafe gibi diğer ağlarda DNS otomatik kalır; giriş sayfası açılır. "
+                                     "Ağ değişince AuxySecurity ajanı bunu kendisi yapar.")
+        self.scope_lbl = c.line("", MUTED)
+        sbar = c.button_bar(pady=(0, 6))
+        self.scope_add_btn = ctk.CTkButton(sbar, text="Şu anki ağı güvenilenlere ekle", width=210, height=30,
+                                           fg_color="transparent", border_width=1, text_color=theme.TEXT,
+                                           hover_color=theme.SURFACE_ALT, command=self.scope_add_current)
+        self.scope_add_btn.pack(side="left")
+        self.scope_rm_btn = ctk.CTkButton(sbar, text="Şu anki ağı listeden çıkar", width=190, height=30,
+                                          fg_color="transparent", border_width=1, text_color=theme.TEXT,
+                                          hover_color=theme.SURFACE_ALT, command=self.scope_remove_current)
+        self.scope_rm_btn.pack(side="left", padx=8)
+        self._show_scope()
         bar = c.button_bar()
         self.apply_btn = ctk.CTkButton(bar, text="Uygula (yönetici)", width=150, height=34, command=self.apply_dns)
         self.apply_btn.pack(side="left")
@@ -166,13 +183,73 @@ class PrivacyPage(ctk.CTkFrame):
         for i, a in enumerate(adapters):
             var = ctk.BooleanVar(value=old.get(a.index, True))
             self.adapter_vars[a.index] = var
-            ctk.CTkCheckBox(self.adapters_frame, text=f"{a.name}  —  {dns.describe_servers(a)}", variable=var,
+            net = f" ({a.network}{', güvenilen' if self.scope.trusts(a.network) else ''})" if a.network else ""
+            ctk.CTkCheckBox(self.adapters_frame, text=f"{a.name}{net}  —  {dns.describe_servers(a)}", variable=var,
                             font=ctk.CTkFont(size=13)).grid(row=i, column=0, sticky="w", pady=2)
         redirect = dns.gdpi_dns_redirect(gdpi.arguments, gdpi.state == "running") if gdpi.installed else False
         self.dns_warn.configure(
             text="⚠ GoodbyeDPI çalışıyor ve DNS'i kendi sunucusuna yönlendiriyor (--dns-addr): burada seçtiğin DNS "
                  "etkisiz kalır. Etkili olması için GoodbyeDPI'ı kapat ya da bu seçeneği içermeyen bir ayarla çalıştır."
             if redirect else "")
+
+    # ---------------- ag'a bagli kural
+    def _show_scope(self) -> None:
+        nets = ", ".join(self.scope.networks) or "(henüz yok)"
+        if self.scope.enabled:
+            self.scope_sw.select()
+            name = dns.resolve_servers(self.scope.value)[3] if self.scope.value else "?"
+            text = f"Etkin: {name}" + (" (şifreli)" if self.scope.doh else "") + f" yalnızca şu ağlarda: {nets}"
+        else:
+            self.scope_sw.deselect()
+            text = f"Güvenilen ağlar: {nets}"
+        self.scope_lbl.configure(text=text)
+
+    def current_networks(self) -> list[str]:
+        return [a.network for a in self.adapters if a.network]
+
+    def _save_scope(self, rule: dnsscope.Rule, enforce: bool) -> None:
+        try:
+            rule = dnsscope.validate(rule)
+        except AuxyError as exc:
+            self.say(str(exc), error=True)
+            return
+        dnsscope.save(rule)
+        self.scope = rule
+        self._show_scope()
+        try:
+            system.signal_config_changed()  # calisan ajan kurali hemen uygular
+        except Exception:  # noqa: BLE001, S110 - ajan calismiyor olabilir
+            pass
+        if enforce and rule.enabled:
+            self._dns_task(lambda: actions.dns_op("enforce"), "Ağa bağlı DNS uygulanıyor… (yönetici izni istenebilir)")
+        else:
+            self.refresh()
+
+    def _scope_toggled(self) -> None:
+        if self.scope_sw.get():
+            self.say("Güvenilen ağları ekle, sonra 'Uygula'ya bas.")
+            return
+        if self.scope.enabled:
+            rule = dnsscope.Rule(**{**self.scope.__dict__, "enabled": False})
+            self._save_scope(rule, enforce=False)
+            self.say("Ağa bağlı kural kapatıldı. Şu anki DNS'i geri almak için 'Eski haline döndür'.")
+
+    def scope_add_current(self) -> None:
+        nets = self.current_networks()
+        if not nets:
+            self.say("Bağlı bir ağ bulunamadı (Wi-Fi/Ethernet bağlanınca tekrar dene).", error=True)
+            return
+        rule = dnsscope.Rule(**{**self.scope.__dict__, "networks": [*self.scope.networks, *nets]})
+        self._save_scope(rule, enforce=rule.enabled)
+        self.say("Güvenilenlere eklendi: " + ", ".join(nets))
+
+    def scope_remove_current(self) -> None:
+        cur = {n.casefold() for n in self.current_networks()}
+        rule = dnsscope.Rule(**{**self.scope.__dict__,
+                                "networks": [n for n in self.scope.networks if n.casefold() not in cur]})
+        if rule.enabled and not rule.networks:
+            rule.enabled = False  # liste bosaldi: kural anlamsiz, kapat (DNS'i geri almak icin 'Eski haline dondur')
+        self._save_scope(rule, enforce=rule.enabled)
 
     def selected_adapters(self) -> list[int]:
         return [i for i, v in self.adapter_vars.items() if v.get()]
@@ -205,6 +282,16 @@ class PrivacyPage(ctk.CTkFrame):
         return self.custom_entry.get().strip() if shown == CUSTOM else PRESET_NAMES[shown]
 
     def apply_dns(self) -> None:
+        if self.scope_sw.get():
+            value = self.chosen_value()
+            doh, strict = bool(self.doh_sw.get()), bool(self.strict_sw.get())
+            nets = ", ".join(self.scope.networks) or "(yok)"
+            if not messagebox.askyesno("Ağa bağlı DNS", f"DNS '{self.preset_menu.get()}'" + (" (şifreli)" if doh else "")
+                                       + f" yalnızca şu ağlarda kullanılacak: {nets}.\nDiğer ağlarda DNS otomatik "
+                                       "(ağın kendi DNS'i) olacak.\nDevam edilsin mi?"):
+                return
+            self._save_scope(dnsscope.Rule(True, value, doh, strict, list(self.scope.networks)), enforce=True)
+            return
         sel = self.selected_adapters()
         if not sel:
             self.say("En az bir ağ seç.", error=True)
@@ -213,11 +300,17 @@ class PrivacyPage(ctk.CTkFrame):
         doh, strict = bool(self.doh_sw.get()), bool(self.strict_sw.get())
         if not messagebox.askyesno("DNS'i değiştir", f"Seçili ağların DNS sunucusu '{self.preset_menu.get()}' olacak"
                                    + (" (şifreli)" if doh else "") + ".\nİstediğin zaman 'Eski haline döndür' ile geri alabilirsin."
+                                   "\nUyarı: bu ayar bağlandığın HER ağda geçerli olur; kampüs/otel gibi giriş sayfalı "
+                                   "ağlarda internet gelmeyebilir. Bunun için 'Yalnızca güvendiğim ağlarda'yı aç."
                                    "\nDevam edilsin mi?"):
             return
         self._dns_task(lambda: actions.dns_op("apply", value, sel, doh, strict), "DNS uygulanıyor… (yönetici izni istenebilir)")
 
     def reset_dns(self) -> None:
+        if self.scope.enabled:  # kural acik kalirsa ajan guvenilen agda DNS'i yeniden atar: once kurali kapat
+            dnsscope.save(dnsscope.Rule(**{**self.scope.__dict__, "enabled": False}))
+            self.scope = dnsscope.load()
+            self._show_scope()
         sel = self.selected_adapters()
         self._dns_task(lambda: actions.dns_op("reset", "", sel), "DNS eski haline döndürülüyor… (yönetici izni istenebilir)")
 

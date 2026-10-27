@@ -369,3 +369,94 @@ class ScheduledScanner:
 
 def safe_name(path: str) -> str:
     return re.sub(r"[\r\n]", " ", Path(path).name)
+
+
+# ---------------- ag degisikligi ----------------
+class NetworkWatcher:
+    """Ag degisince (yeni Wi-Fi'a baglanma, kablo takma, ag degistirme) `on_change`'i cagirir.
+
+    Olay tabanli: iphlpapi.NotifyAddrChange (overlapped) ile IP adres tablosu degisene kadar uyur, CPU kullanmaz.
+    Baglanirken adres birkac kez degisir; son degisiklikten `debounce` sn sonra tek kez cagrilir. Kacirilan olaya
+    karsi `safety_s` sn'de bir de kendiliginden cagrilir. kick(): ayar degisince hemen yeniden degerlendir.
+    """
+
+    ERROR_IO_PENDING = 997
+    WAIT_OBJECT_0 = 0
+    WAIT_TIMEOUT = 0x102
+
+    def __init__(self, on_change: Callable[[], None], debounce: float = 4.0, safety_s: float = 900.0):
+        self._on_change = on_change
+        self._debounce = debounce
+        self._safety_ms = int(safety_s * 1000)
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._log = get_logger()
+        self._wake = None  # Win32 olay tutamaci: stop()/kick() bekleyen is parcacigini uyandirir
+
+    def start(self) -> None:
+        from ctypes import wintypes
+
+        k = ctypes.windll.kernel32
+        k.CreateEventW.restype = wintypes.HANDLE
+        k.CreateEventW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR]
+        k.SetEvent.argtypes = [wintypes.HANDLE]
+        self._wake = k.CreateEventW(None, False, False, None)
+        self._thread = threading.Thread(target=self._run, daemon=True, name="auxy-netwatch")
+        self._thread.start()
+
+    def kick(self) -> None:
+        if self._wake:
+            ctypes.windll.kernel32.SetEvent(self._wake)
+
+    def stop(self) -> None:
+        self._stop.set()
+        self.kick()
+        if self._thread:
+            self._thread.join(timeout=5)
+
+    def _call(self) -> None:
+        try:
+            self._on_change()
+        except Exception as exc:  # noqa: BLE001 - geri cagrim hatasi izleyiciyi durdurmasin
+            self._log.warning("ag degisikligi islenemedi: %s", exc)
+
+    def _run(self) -> None:
+        from ctypes import wintypes
+
+        class OVERLAPPED(ctypes.Structure):
+            _fields_ = [("Internal", ctypes.c_void_p), ("InternalHigh", ctypes.c_void_p),
+                        ("Offset", wintypes.DWORD), ("OffsetHigh", wintypes.DWORD), ("hEvent", wintypes.HANDLE)]
+
+        k, ip = ctypes.windll.kernel32, ctypes.windll.iphlpapi
+        ip.NotifyAddrChange.argtypes = [ctypes.POINTER(wintypes.HANDLE), ctypes.POINTER(OVERLAPPED)]
+        ip.NotifyAddrChange.restype = wintypes.DWORD
+        ip.CancelIPChangeNotify.argtypes = [ctypes.POINTER(OVERLAPPED)]
+        k.WaitForMultipleObjects.argtypes = [wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE), wintypes.BOOL,
+                                             wintypes.DWORD]
+        k.WaitForMultipleObjects.restype = wintypes.DWORD
+        k.CloseHandle.argtypes = [wintypes.HANDLE]
+
+        self._call()  # acilista bir kez: ajan baslarken baglanilmis olan aga gore duzelt
+        changed = k.CreateEventW(None, False, False, None)
+        try:
+            while not self._stop.is_set():
+                ov = OVERLAPPED(hEvent=changed)
+                handle = wintypes.HANDLE()
+                rc = ip.NotifyAddrChange(ctypes.byref(handle), ctypes.byref(ov))
+                if rc not in (0, self.ERROR_IO_PENDING):
+                    self._log.warning("NotifyAddrChange basarisiz: %s", rc)
+                    if self._stop.wait(60):
+                        break
+                    self._call()
+                    continue
+                handles = (wintypes.HANDLE * 2)(changed, self._wake)
+                r = k.WaitForMultipleObjects(2, handles, False, self._safety_ms)
+                if r != self.WAIT_OBJECT_0:
+                    ip.CancelIPChangeNotify(ctypes.byref(ov))
+                if self._stop.is_set():
+                    break
+                if r == self.WAIT_OBJECT_0 and self._stop.wait(self._debounce):  # baglanma oturana kadar bekle
+                    break
+                self._call()
+        finally:
+            k.CloseHandle(changed)

@@ -65,6 +65,7 @@ class Adapter:
     v4: tuple[str, ...] = ()
     v6: tuple[str, ...] = ()
     static: bool = False           # DNS elle atanmis mi (False: DHCP'den otomatik)
+    network: str = ""              # bagli ag profilinin adi (Wi-Fi'da genelde SSID); bilinmiyorsa bos
 
 
 @dataclass(frozen=True)
@@ -119,8 +120,10 @@ foreach ($a in (Get-NetAdapter -Physical | Where-Object { $_.Status -eq 'Up' }))
   $v6 = @((Get-DnsClientServerAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv6).ServerAddresses)
   $g = $a.InterfaceGuid
   $ns = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\$g" -ErrorAction SilentlyContinue).NameServer
+  $p = @(Get-NetConnectionProfile -InterfaceIndex $a.ifIndex -ErrorAction SilentlyContinue)[0]
+  $net = if ($p) { [string]$p.Name } else { '' }
   $out += [pscustomobject]@{ index=[int]$a.ifIndex; name=$a.Name; description=$a.InterfaceDescription; guid=$g;
-    media=$a.PhysicalMediaType; v4=$v4; v6=$v6; static=[bool]$ns }
+    media=$a.PhysicalMediaType; v4=$v4; v6=$v6; static=[bool]$ns; network=$net }
 }
 ConvertTo-Json -InputObject @($out) -Compress -Depth 4
 """
@@ -148,7 +151,7 @@ def read_adapters(run: Callable = pshell.run) -> list[Adapter]:
         items = [items]
     return [Adapter(int(i["index"]), str(i["name"]), str(i["description"]), str(i["guid"]),
                     _kind(str(i.get("media") or ""), str(i["name"])), tuple(i.get("v4") or ()),
-                    tuple(i.get("v6") or ()), bool(i.get("static"))) for i in items]
+                    tuple(i.get("v6") or ()), bool(i.get("static")), str(i.get("network") or "")) for i in items]
 
 
 def describe_servers(a: Adapter) -> str:
@@ -180,9 +183,18 @@ if ($env:AUXY_DOH) {
 Clear-DnsClientCache
 """
 
+# Not: Set-DnsClientServerAddress -ResetServerAddresses bazi makinelerde hata vermeden etkisiz kaliyor (adres
+# 1.1.1.1 olarak duruyor; kampus agi gercek makinede boyle kirildi). netsh'in 'source=dhcp' komutu kalici olarak
+# DHCP'ye dondurur; ikisi birlikte calistirilir. netsh cmd ile cagrilir: PS 5.1'de yerel komut stderr'i
+# ErrorActionPreference=Stop altinda istisnaya donusebiliyor (IPv6 kapali bagdastiricida netsh hata yazar).
 _RESET_PS = r"""
 $ErrorActionPreference = 'Stop'
-foreach ($i in $env:AUXY_IDX.Split(',')) { Set-DnsClientServerAddress -InterfaceIndex ([int]$i) -ResetServerAddresses }
+foreach ($i in $env:AUXY_IDX.Split(',')) {
+  $n = [int]$i
+  Set-DnsClientServerAddress -InterfaceIndex $n -ResetServerAddresses
+  cmd /c "netsh interface ipv4 set dnsservers name=$n source=dhcp >nul 2>&1"
+  cmd /c "netsh interface ipv6 set dnsservers name=$n source=dhcp >nul 2>&1"
+}
 Clear-DnsClientCache
 """
 
@@ -203,6 +215,11 @@ def _load_backup() -> dict:
 def _save_backup(data: dict) -> None:
     _backup_path().parent.mkdir(parents=True, exist_ok=True)
     _backup_path().write_text(json.dumps(data, indent=1), encoding="utf-8")
+
+
+def changed_by_us(guid: str) -> bool:
+    """Bu bagdastiricinin DNS'i AuxySecurity tarafindan degistirildi mi (yedek kaydi var mi)?"""
+    return guid in _load_backup()
 
 
 def _indexes(adapters: list[int]) -> str:

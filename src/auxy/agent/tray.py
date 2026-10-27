@@ -7,6 +7,7 @@ import subprocess
 import threading
 
 from auxy.agent.helpers import HelperManager
+from auxy.agent.watchers import NetworkWatcher
 from auxy.core import actions, defender, system
 from auxy.core import config as cfgmod
 from auxy.core.log import get_logger
@@ -41,6 +42,8 @@ class Agent:
         self._scans = ScanManager()
         self._helpers = HelperManager(self._scans, self._notify)
         self._config_waiter = system.ConfigWaiter()
+        self._netwatch = NetworkWatcher(self._enforce_dns_scope)
+        self._dns_scope_warned = False
         self._stop = threading.Event()
         self._wake = threading.Event()
         self.status: defender.DefenderStatus | None = None
@@ -199,13 +202,34 @@ class Agent:
             if self._stop.is_set():
                 break
             self._helpers.apply(cfgmod.load())
+            self._netwatch.kick()  # ag'a bagli DNS kurali degismis olabilir
             self._wake.set()
 
     def _setup(self, icon) -> None:
         icon.visible = True
         self._helpers.apply(cfgmod.load())
         threading.Thread(target=self._config_loop, daemon=True, name="auxy-config").start()
+        try:
+            self._netwatch.start()
+        except Exception as exc:  # noqa: BLE001 - ag izleyicisi olmadan da ajan calismali
+            self._log.warning("ag izleyicisi baslatilamadi: %s", exc)
         system.trim_working_set()
+
+    def _enforce_dns_scope(self) -> None:
+        """Ag degisince: DNS'i yalnizca guvenilen aglarda uygula, digerlerinde otomatige dondur (kampus girisi vb.)."""
+        from auxy.core import dnsscope
+
+        rule = dnsscope.load()
+        if not rule.enabled:
+            return
+        if not system.is_admin():  # ajan normalde yuksek yetkiyle baslar; degilse UAC ile her ag degisiminde sormayiz
+            if not self._dns_scope_warned:
+                self._dns_scope_warned = True
+                self._notify("Ağa bağlı DNS kuralı için ajanın yönetici yetkisi yok; DNS'i AuxySecurity'den elle uygula.")
+            return
+        for message in dnsscope.enforce(rule):
+            self._log.info("dns kurali: %s", message)
+            self._notify(message)
 
     def _quick_scan_action(self, icon, item):
         self._start(self._quick_scan)
@@ -250,6 +274,7 @@ class Agent:
         self._wake.set()
         self._config_waiter.wake()
         self._helpers.stop_all()
+        self._netwatch.stop()
         self.icon.stop()
 
     def run(self) -> int:
@@ -261,6 +286,7 @@ class Agent:
             self._wake.set()
             self._config_waiter.wake()
             self._helpers.stop_all()
+            self._netwatch.stop()
             try:
                 self.icon.stop()
             except Exception:  # noqa: BLE001 - zaten durmus olabilir

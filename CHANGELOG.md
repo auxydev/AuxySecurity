@@ -1,5 +1,16 @@
 # Sürüm notları
 
+## 1.4.1 — 2026-10-27
+
+### Yeni: Ağa bağlı DNS
+- **Yalnızca güvendiğim ağlarda:** seçilen DNS (ve şifreli DNS) yalnızca listedeki ağlarda (ör. evdeki Wi-Fi) uygulanır; kampüs, yurt, kafe, otel gibi diğer ağlarda DNS otomatik (ağın kendi DNS'i) kalır, böylece giriş sayfası (captive portal) açılır.
+- **Kendiliğinden:** tray ajanı ağ değişimini olay tabanlı izler (NotifyAddrChange, bekleme sırasında CPU kullanmaz) ve bağlanınca kuralı uygular; bildirim gösterir. Güvenilmeyen ağda yalnızca AuxySecurity'nin atadığı DNS geri alınır, başka araçların ayarına dokunulmaz.
+- DNS ve gizlilik sayfasında anahtar + "Şu anki ağı güvenilenlere ekle / çıkar". Kural kapalıyken DNS uygulanırken giriş sayfalı ağlar için uyarı.
+- CLI: `auxy dns-scope status | on cloudflare [--doh] | add [ağ] | remove <ağ> | off`, `auxy dns enforce`; `dns status` bağlı ağ adını gösterir.
+
+### Düzeltme
+- **'Eski haline döndür' DNS'i gerçekten otomatiğe almıyordu:** `Set-DnsClientServerAddress -ResetServerAddresses` bazı makinelerde hata vermeden etkisiz kalıyor, Wi-Fi 1.1.1.1'de kalıyordu (kampüs ağında internet yok). Artık ek olarak `netsh … source=dhcp` çalıştırılır.
+
 ## 1.4.0 — 2026-10-11
 
 ### Yeni: Ön ayarlar

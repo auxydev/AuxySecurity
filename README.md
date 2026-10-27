@@ -55,7 +55,7 @@ odaklı bir **kontrol paneli** sunar:
 | **Güvenlik** | SmartScreen, çekirdek yalıtımı (bellek bütünlüğü), Secure Boot / TPM / exploit protection durumu, Defender dışlamaları |
 | **Ağ güvenliği** | Güvenlik duvarı profilleri ve gelen bağlantı eylemi, kural listesi (pasifleştir / geri aç), program engelleme; **GoodbyeDPI** hizmeti (durum, başlat/kapat, otomatik başlatma, güvenli konuma taşıma); **Cloudflare WARP** (bağlan/kes, protokol MASQUE ↔ WireGuard, çalışma kipi). Kurulum programı ikisini de arka planda kurar |
 | **Ön ayarlar** | *En iyi hız · En güvenilir · En gizli · Maksimum gizlilik (Tor) · Yurt/kısıtlı ağ*: tek tıkla DNS, şifreli DNS, WARP, Tor, gizlilik ve güvenlik duvarını birlikte ayarla; önce plan gösterilir, tek UAC, geri alınabilir |
-| **DNS ve gizlilik** | DNS seçimi (Cloudflare/Google/Quad9/AdGuard/özel) + **ölçüm tabanlı hız/güvenlik testi** (yavaş ya da müdahaleci ağ DNS'ini ortaya çıkarır), şifreli DNS (DoH), reklam kimliği / rastgele MAC, **Tor** (SOCKS5 vekili; köprü, yeni kimlik, doğrulama) |
+| **DNS ve gizlilik** | DNS seçimi (Cloudflare/Google/Quad9/AdGuard/özel) + **ölçüm tabanlı hız/güvenlik testi** (yavaş ya da müdahaleci ağ DNS'ini ortaya çıkarır), şifreli DNS (DoH), **ağa bağlı DNS** (yalnızca güvendiğin ağlarda; kampüs/otel giriş sayfası bozulmaz), reklam kimliği / rastgele MAC, **Tor** (SOCKS5 vekili; köprü, yeni kimlik, doğrulama) |
 | **Otomasyon** | İndirilenler klasörünü izleme, Defender tehdit bildirimleri (olay günlüğü aboneliği), USB tarama, haftalık zamanlanmış tarama (boştayken), Windows açılışında başlatma |
 | **Tanı ve bakım** | `auxy doctor` (ortam/kurulum tanısı, hiçbir şeyi değiştirmez), `auxy cleanup` (kaldırma temizliği), `auxy revert-all` |
 | **CLI** | Her şeyin komut satırı karşılığı (`auxy status`, `auxy scan quick`, `auxy vault add …`) |
@@ -154,7 +154,7 @@ değişmez ve anahtar gerçek duruma döner.
 | `auxy winsec-get` · `winsec-set fw_private off` · `winsec-revert` | Güvenlik duvarı, SmartScreen, çekirdek yalıtımı |
 | `auxy firewall-rule list` · `disable <ad>` · `block <program>` | Güvenlik duvarı kuralları |
 | `auxy preset list` · `preset plan gizli` · `preset apply hiz --yes` · `preset revert` | Ön ayarlar |
-| `auxy dns status` · `dns bench` · `dns apply cloudflare --doh` · `privacy status` · `tor start` | DNS, gizlilik, Tor |
+| `auxy dns status` · `dns bench` · `dns apply cloudflare --doh` · `dns-scope on cloudflare` · `dns-scope add` · `privacy status` · `tor start` | DNS, ağa bağlı DNS, gizlilik, Tor |
 | `auxy netsvc status` · `gdpi-start/-stop` · `warp-connect` · `warp-protocol MASQUE` | GoodbyeDPI ve WARP |
 | `auxy exclusion list path` · `add path C:\proje` | Defender dışlamaları |
 | `auxy autostart install` · `context-menu install` | Başlangıç görevi, sağ tık menüsü |

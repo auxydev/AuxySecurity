@@ -250,7 +250,7 @@ def net_op(op: str, value: str = "") -> ActionResult:
     return run_elevated(["netsvc", op, value] if value else ["netsvc", op])
 
 
-DNS_ADMIN_OPS = ("apply", "reset", "flush")
+DNS_ADMIN_OPS = ("apply", "reset", "flush", "enforce")
 PRIVACY_ADMIN_OPS = ("mac-on", "mac-off")
 
 
@@ -266,6 +266,11 @@ def run_dns_op(op: str, value: str = "", adapters: list[int] | None = None, doh:
             return ActionResult(True, dns.reset(list(adapters or [])), True)
         if op == "flush":
             return ActionResult(True, dns.flush_cache(), True)
+        if op == "enforce":
+            from auxy.core import dnsscope
+
+            done = dnsscope.enforce()
+            return ActionResult(True, " ".join(done) or "Ağa bağlı DNS kuralı: değişiklik gerekmedi.", bool(done))
     except AuxyError as exc:
         return ActionResult(False, str(exc))
     return ActionResult(False, f"Geçersiz işlem: {op!r}")
