@@ -7,7 +7,7 @@ Hafif bir tray ajanı · şifreli karantina kasası · tarama yöneticisi · gü
 
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![Platform](https://img.shields.io/badge/Windows-11-0078D4?logo=windows11&logoColor=white)
-![Tests](https://img.shields.io/badge/testler-528%20geçiyor-2e9e5b)
+![Tests](https://img.shields.io/badge/testler-537%20geçiyor-2e9e5b)
 ![Kapsam](https://img.shields.io/badge/kapsam-%25_86-2e9e5b)
 ![Durum](https://img.shields.io/badge/sürüm-1.4.1-2e9e5b)
 
@@ -93,7 +93,13 @@ Hepsi **geri alınabilir** olacak şekilde tasarlandı: bir ayarı ilk değişti
 
 ## Kurulum
 
-### Hazır kurulum (önerilen, Python gerekmez)
+### Hızlı kurulum (en kolay)
+
+`AuxySecurity-Kurulum-<sürüm>.zip` dosyasını bir klasöre çıkar ve **`başlat.bat`**'a çift tıkla. Sihirbaz adım adım ilerler: sistemi denetler, yönetici izni ister, kurulum dosyasını **SHA-256 ile doğrular**, seçeneklerini sorar (E/H), kurar, kurulumu denetler ve uygulamayı açar. Sorusuz: `başlat.bat /auto`.
+
+Paketi kendin üretmek için: `scripts\build.ps1` → `scripts\build_installer.ps1` → `python scripts\make_package.py`.
+
+### Hazır kurulum (Python gerekmez)
 
 `AuxySecurity-Setup.exe` dosyasını çalıştır (UAC sorar) ya da sessiz kur:
 
@@ -260,7 +266,7 @@ Gerçek makinede ölçüldü (Windows 11):
 ## Geliştirme
 
 ```powershell
-pytest -q                           # 528 test, ~40 sn (GUI testleri dahil), kapsam %86
+pytest -q                           # 537 test, ~40 sn (GUI testleri dahil), kapsam %86
 python -m auxy doctor               # ortam tanısı
 python scripts\unused_imports.py src
 ```
@@ -279,7 +285,7 @@ AuxySecurity/
 │  ├─ agent/     tray ajanı, klasör izleme, olay aboneliği, USB, zamanlayıcı
 │  ├─ gui/       pencere, sayfalar (pano, ön ayarlar, güvenlik, ağ güvenliği, DNS ve gizlilik, tarama, karantina, ayarlar)
 │  └─ __main__.py   CLI
-├─ tests/        pytest (528 test)
+├─ tests/        pytest (537 test)
 ├─ scripts/      gerçek makine testleri, ölçümler, ekran görüntüsü üretimi
 ├─ docs/         milestone dokümanları, mimari kararlar, ekran görüntüleri
 ├─ PLAN.md       kapsamlı proje planı
@@ -305,6 +311,7 @@ AuxySecurity/
 | [M11](docs/milestones/M11-dns-privacy.md) | DNS seçimi + hız/güvenlik testi + DoH, gizlilik ayarları, Tor | ✔ |
 | [M12](docs/milestones/M12-presets.md) | Ön ayarlar: tek tıkla çoklu ayar, plan + onay, tek UAC, geri alma | ✔ |
 | [1.4.1](CHANGELOG.md) | Ağa bağlı DNS (yalnızca güvenilen ağlarda; kampüs giriş sayfası bozulmaz), 'Eski haline döndür' düzeltmesi, tek komutla yeniden kurulum | ✔ |
+| [M13](docs/milestones/M13-quick-installer.md) | Hızlı kurulum paketi: `başlat.bat` (adım adım, SHA-256 doğrulamalı) | ✔ |
 
 Fikirler ve ertelenenler: [BACKLOG.md](BACKLOG.md).
 

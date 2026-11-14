@@ -1,5 +1,13 @@
 # Sürüm notları
 
+## 1.5.0 — 2026-11-15
+
+### Yeni: Hızlı kurulum paketi (`başlat.bat`)
+- `AuxySecurity-Kurulum-<sürüm>.zip`: içinde **başlat.bat**, kurulum programı, `SHA256SUMS.txt` ve `OKU-BENI.txt`.
+- **başlat.bat** çift tıklayınca 7 adımda kurar: sistem denetimi (64 bit Windows 10/11) → yönetici izni (UAC'yi kendisi ister) → **SHA-256 doğrulama** (bozuk/değiştirilmiş kurucu çalıştırılmaz) → seçenekler (E/H: otomatik başlatma, sağ tık, masaüstü, GoodbyeDPI, WARP) → kurulum → doğrulama (sürüm + `doctor`) → uygulamayı açma (yükseltilmemiş kullanıcı olarak).
+- Sorusuz kurulum: `başlat.bat /auto`; ayrıca `/nogdpi`, `/nowarp`, `/nostart`.
+- Paketi üretmek: `scripts\build.ps1` → `scripts\build_installer.ps1` → `python scripts\make_package.py`.
+
 ## 1.4.1 — 2026-10-27
 
 ### Yeni: Ağa bağlı DNS
